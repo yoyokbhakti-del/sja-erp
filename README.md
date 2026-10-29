@@ -53,11 +53,15 @@ Transaksi biasa tidak boleh bertanggal sebelum tanggal mulai. Saldo lama dimasuk
 
 Role baru **Staf Keuangan / Akuntansi** (`keuangan`) untuk invoice, pembayaran, jurnal, dan laporan keuangan.
 
+## Lingkungan produksi
+- Database: Supabase project `sja-erp` (ref `klawvreeiytmkmlptjij`), timezone Asia/Jakarta.
+- Hosting web: Vercel, terhubung ke repo GitHub ini (setiap push ke `main` otomatis deploy).
+
 ## Instalasi
 
 1. **Buat project Supabase** (supabase.com, region Singapore).
 2. **Jalankan migrasi** berurutan di *SQL Editor* Supabase:
-   `supabase/migrations/0001_…` s/d `0006_…`, lalu `supabase/seed.sql` (data contoh — ubah/hapus sebelum go-live).
+   `supabase/migrations/0001_…` s/d `0007_…`, lalu `supabase/seed.sql` (data contoh — ubah/hapus sebelum go-live).
    Atau dengan CLI: `npx supabase link --project-ref <id>` lalu `npx supabase db push`.
 3. **Env**: salin `.env.example` → `.env.local`, isi URL & anon key (Project Settings → API).
 4. **Jalankan**:
