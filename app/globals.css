@@ -1,0 +1,9 @@
+@import "tailwindcss";
+
+:root { color-scheme: light; }
+body { @apply bg-zinc-50 text-zinc-900 antialiased; font-feature-settings: "tnum" 0; }
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
