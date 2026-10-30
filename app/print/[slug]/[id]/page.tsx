@@ -5,6 +5,7 @@ import { Printer, X } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { bySlug, type DocType } from "@/lib/doctypes";
 import { number, rupiah, tanggal, terbilang, waktu } from "@/lib/format";
+import { FORM_DOCS, FormPrint } from "@/components/print-form";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -42,9 +43,8 @@ const CFG: Record<string, Cfg> = {
 // Ukuran kertas per dokumen. Continuous form 9,5 x 11 inci = 241,3 x 279,4 mm (printer dot-matrix).
 type Paper = { name: string; w: number; h: number; mx: number; my: number };
 const A4: Paper = { name: "A4 (210 × 297 mm)", w: 210, h: 297, mx: 12, my: 12 };
-const CF: Paper = { name: "Continuous form 9,5 × 11 inci (241,3 × 279,4 mm)", w: 241.3, h: 279.4, mx: 10, my: 8 };
-const CONTINUOUS = new Set(["sales_invoices", "delivery_notes", "payment_entries", "purchase_receipts", "purchase_orders"]);
-const paperFor = (key: string) => (CONTINUOUS.has(key) ? CF : A4);
+// Invoice, SJ, Bukti Kas/Bank, BPB, PO memakai format ½ continuous form (components/print-form.tsx)
+const paperFor = (_key: string): Paper => A4;
 
 function pageCss(p: Paper) {
   return `
@@ -57,11 +57,14 @@ function pageCss(p: Paper) {
 function partyEmbed(dt: DocType) {
   const parts: string[] = [];
   const has = (n: string) => dt.fields.some((f) => f.name === n);
-  if (has("supplier_id")) parts.push("party:suppliers!supplier_id(code,name,address,city,npwp,phone,contact_person)");
-  if (has("customer_id")) parts.push("party:customers!customer_id(code,name,address,city,npwp,phone,contact_person)");
+  if (has("supplier_id")) parts.push("party:suppliers!supplier_id(code,name,address,city,npwp,phone,contact_person,payment_terms_days)");
+  if (has("customer_id")) parts.push("party:customers!customer_id(code,name,address,city,npwp,phone,contact_person,payment_terms_days)");
   for (const [col, tbl] of [["purchase_order_id", "purchase_orders"], ["purchase_receipt_id", "purchase_receipts"],
                             ["sales_order_id", "sales_orders"], ["delivery_note_id", "delivery_notes"]]) {
-    if (has(col)) parts.push(`${col}__l:${tbl}!${col}(name)`);
+    if (!has(col)) continue;
+    if (col === "sales_order_id") parts.push(`${col}__l:${tbl}!${col}(name,po_no)`);
+    else if (col === "delivery_note_id") parts.push(`${col}__l:${tbl}!${col}(name,sales_order_id__l:sales_orders!sales_order_id(name,po_no))`);
+    else parts.push(`${col}__l:${tbl}!${col}(name)`);
   }
   for (const col of ["set_warehouse_id", "from_warehouse_id", "to_warehouse_id"]) {
     if (has(col)) parts.push(`${col}__l:warehouses!${col}(code,name)`);
@@ -97,7 +100,7 @@ export default function PrintPage() {
       } else {
         head = await sb.from(dt.key).select(partyEmbed(dt)).eq("id", id).single();
         const whEmbed = dt.key === "stock_entries" ? ", sw:warehouses!s_warehouse_id(code), tw:warehouses!t_warehouse_id(code)" : "";
-        const ch = await sb.from(dt.child!.table).select(`*, item:items!item_id(code,name,stock_uom,reg_number)${whEmbed}`).eq("parent_id", id).order("idx");
+        const ch = await sb.from(dt.child!.table).select(`*, item:items!item_id(code,name,brand,stock_uom,reg_number)${whEmbed}`).eq("parent_id", id).order("idx");
         setRows((ch.data as Row[]) ?? []);
       }
       const d = head.data as Row | null;
@@ -114,6 +117,8 @@ export default function PrintPage() {
 
   if (!dt) return <div style={{ padding: 40 }}>Dokumen tidak dikenal</div>;
   if (!doc || !company) return <div style={{ padding: 40, color: "#71717a", fontFamily: "system-ui" }}>Memuat dokumen…</div>;
+
+  if (FORM_DOCS.has(dt.key)) return <FormPrint dt={dt} doc={doc} rows={rows} company={company} maker={maker} />;
 
   const title = typeof dt.printTitle === "function" ? dt.printTitle(doc) : (dt.printTitle ?? dt.label.toUpperCase());
   const date = doc.posting_date ?? doc.transaction_date;

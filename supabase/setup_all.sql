@@ -2405,6 +2405,226 @@ begin
   end loop;
 end $$;
 
+-- ================= supabase/migrations/0008_auto_codes.sql =================
+-- =====================================================================
+-- 0008 KODE MASTER OTOMATIS
+--   Item     : awalan menurut jenis -> RM-0001 (Bahan Baku), PM- (Bahan Kemas),
+--              FG- (Produk Jadi), TG- (Barang Dagang), SV- (Jasa), OT- (Lainnya)
+--   Supplier : SUP-0001     Customer : CUS-0001     Gudang : WH-001
+-- Kode dibuat saat data pertama kali disimpan dan tidak bisa diubah.
+-- Kode lama yang sudah ada tetap dipakai. (NOT NULL tetap berlaku: dicek setelah trigger mengisi kode.)
+-- =====================================================================
+
+create or replace function public.next_code(p_prefix text, p_digits int, p_table text)
+returns text language plpgsql security definer set search_path = public as $$
+declare v_n int; v_code text; v_exists boolean;
+begin
+  loop
+    insert into public.naming_series (key, current) values ('CODE:' || p_prefix, 1)
+    on conflict (key) do update set current = naming_series.current + 1
+    returning current into v_n;
+    v_code := p_prefix || '-' || lpad(v_n::text, p_digits, '0');
+    execute format('select exists (select 1 from public.%I where code = $1)', p_table) into v_exists using v_code;
+    exit when not v_exists;   -- lewati nomor yang kebetulan sudah dipakai
+  end loop;
+  return v_code;
+end $$;
+revoke execute on function public.next_code(text, int, text) from public, anon, authenticated;
+
+create or replace function public.set_master_code()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_prefix text; v_digits int := 4;
+begin
+  if tg_op = 'UPDATE' then
+    new.code := old.code;          -- kode tidak bisa diubah
+    return new;
+  end if;
+  if coalesce(trim(new.code), '') <> '' then return new; end if;   -- impor data lama boleh membawa kode sendiri
+  v_prefix := case tg_table_name
+    when 'suppliers'  then 'SUP'
+    when 'customers'  then 'CUS'
+    when 'warehouses' then 'WH'
+    when 'items' then case to_jsonb(new)->>'item_type'
+        when 'Bahan Baku'    then 'RM'
+        when 'Bahan Kemas'   then 'PM'
+        when 'Produk Jadi'   then 'FG'
+        when 'Barang Dagang' then 'TG'
+        when 'Jasa'          then 'SV'
+        else 'OT' end
+  end;
+  if tg_table_name = 'warehouses' then v_digits := 3; end if;
+  new.code := public.next_code(v_prefix, v_digits, tg_table_name);
+  return new;
+end $$;
+revoke execute on function public.set_master_code() from public, anon, authenticated;
+
+do $$
+declare t text;
+begin
+  foreach t in array array['items','suppliers','customers','warehouses'] loop
+    execute format('create trigger %I before insert or update of code on public.%I for each row execute function public.set_master_code()',
+                   t || '_code', t);
+  end loop;
+end $$;
+
+-- ================= supabase/migrations/0009_where_used.sql =================
+-- =====================================================================
+-- 0009 "DIPAKAI DI MANA?" untuk pesan hapus yang jelas
+--   where_used('items', '<id>') -> daftar dokumen/data yang masih memakai record ini
+-- =====================================================================
+create or replace function public._where_used_raw(p_table text, p_id text)
+returns table (doctype text, doc_name text, status text)
+language plpgsql stable security definer set search_path = public as $$
+declare
+  r record; v_parent text; v_has_name boolean; v_has_status boolean; v_has_code boolean;
+begin
+  for r in
+    select cl.relname tbl, a.attname col
+      from pg_constraint c
+      join pg_class cl on cl.oid = c.conrelid
+      join pg_namespace n on n.oid = cl.relnamespace and n.nspname = 'public'
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+     where c.contype = 'f' and array_length(c.conkey, 1) = 1
+       and c.confrelid = format('public.%I', p_table)::regclass
+  loop
+    -- riwayat stok / jurnal
+    if r.tbl in ('stock_ledger','bins','batches') then
+      return query execute format('select ''Riwayat stok''::text, count(*)::text || '' baris'', null::text
+                                   from public.%I where %I::text = $1 having count(*) > 0', r.tbl, r.col) using p_id;
+      continue;
+    end if;
+    if r.tbl = 'gl_entries' then
+      return query execute format('select ''Jurnal akuntansi''::text, count(*)::text || '' baris'', null::text
+                                   from public.gl_entries where %I::text = $1 having count(*) > 0', r.col) using p_id;
+      continue;
+    end if;
+
+    -- tabel anak -> tampilkan dokumen induknya
+    select pc.relname into v_parent
+      from pg_constraint c
+      join pg_class pc on pc.oid = c.confrelid
+      join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+     where c.contype = 'f' and c.conrelid = format('public.%I', r.tbl)::regclass and a.attname = 'parent_id'
+       and exists (select 1 from information_schema.columns ic
+                    where ic.table_schema = 'public' and ic.table_name = pc.relname and ic.column_name = 'docstatus')
+     limit 1;
+    if v_parent is not null then
+      return query execute format(
+        'select distinct %L::text, p.name::text, p.status::text from public.%I x join public.%I p on p.id = x.parent_id where x.%I::text = $1',
+        v_parent, r.tbl, v_parent, r.col) using p_id;
+      continue;
+    end if;
+
+    select bool_or(column_name = 'name'), bool_or(column_name = 'status'), bool_or(column_name = 'code')
+      into v_has_name, v_has_status, v_has_code
+      from information_schema.columns where table_schema = 'public' and table_name = r.tbl;
+    return query execute format('select %L::text, (%s)::text, (%s)::text from public.%I where %I::text = $1',
+      r.tbl,
+      case when v_has_code then 'coalesce(code, name)' when v_has_name then 'name' else '''(1 data)''' end,
+      case when v_has_status then 'status' else 'null' end,
+      r.tbl, r.col) using p_id;
+  end loop;
+end $$;
+revoke execute on function public._where_used_raw(text, text) from public, anon, authenticated;
+
+create or replace function public.where_used(p_table text, p_id text)
+returns table (doctype text, doc_name text, status text)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.has_perm(p_table, 'write') then
+    raise exception 'Akses ditolak' using errcode = '42501';
+  end if;
+  return query
+    select distinct r.doctype, r.doc_name, r.status from public._where_used_raw(p_table, p_id) r
+     where r.doctype not in ('Riwayat stok', 'Jurnal akuntansi')
+    union all
+    select r.doctype, 'sudah ada', null from public._where_used_raw(p_table, p_id) r
+     where r.doctype in ('Riwayat stok', 'Jurnal akuntansi') group by r.doctype
+    order by 1, 2;
+end $$;
+revoke execute on function public.where_used(text, text) from public, anon;
+grant execute on function public.where_used(text, text) to authenticated;
+
+-- ================= supabase/migrations/0010_brand_discount_bank.sql =================
+-- =====================================================================
+-- 0010 MERK, DISKON PER BARIS, REKENING BANK & NAMA KOP CETAK
+-- =====================================================================
+
+-- Merk item
+alter table public.items add column if not exists brand text;
+
+-- Data kop & rekening di cetakan
+alter table public.companies
+  add column if not exists print_name        text,   -- nama di kop cetak, mis. "SEKAR JAYA ABADI GROUP"
+  add column if not exists bank_name         text,   -- mis. "BCA"
+  add column if not exists bank_account_name text,   -- atas nama
+  add column if not exists bank_account_no   text;
+
+-- Diskon (%) per baris. amount = qty x harga x (1 - diskon%)
+do $$
+declare t text;
+begin
+  foreach t in array array['sales_order_items','delivery_note_items','sales_invoice_items',
+                           'purchase_order_items','purchase_invoice_items'] loop
+    execute format('alter table public.%I add column discount_percent numeric(5,2) not null default 0
+                    check (discount_percent >= 0 and discount_percent <= 100)', t);
+    execute format('alter table public.%I drop column amount', t);
+    execute format('alter table public.%I add column amount numeric(18,2)
+                    generated always as (round(qty * rate * (1 - discount_percent / 100), 2)) stored', t);
+  end loop;
+end $$;
+
+-- Dokumen turunan ikut membawa diskon
+create or replace function public.make_delivery_note(p_so uuid)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare so public.sales_orders; v_id uuid;
+begin
+  perform public.require_perm('delivery_notes', 'write');
+  select * into so from public.sales_orders where id = p_so;
+  if so.docstatus is distinct from 1 then raise exception 'Sales Order harus sudah disubmit'; end if;
+  if so.per_delivered >= 100 then raise exception 'Sales Order sudah terkirim penuh'; end if;
+  insert into public.delivery_notes (customer_id, sales_order_id, set_warehouse_id, ppn_percent, company_id)
+  values (so.customer_id, so.id, so.set_warehouse_id, so.ppn_percent, so.company_id) returning id into v_id;
+  insert into public.delivery_note_items (parent_id, idx, item_id, qty, rate, discount_percent, warehouse_id, so_item_id)
+  select v_id, row_number() over (order by idx), item_id, qty - delivered_qty, rate, discount_percent,
+         coalesce(warehouse_id, so.set_warehouse_id), id
+    from public.sales_order_items where parent_id = p_so and qty > delivered_qty;
+  return v_id;
+end $$;
+
+create or replace function public.make_sales_invoice(p_dn uuid)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare dn public.delivery_notes; v_id uuid;
+begin
+  perform public.require_perm('sales_invoices', 'write');
+  select * into dn from public.delivery_notes where id = p_dn;
+  if dn.docstatus is distinct from 1 then raise exception 'Delivery Note harus sudah disubmit'; end if;
+  insert into public.sales_invoices (customer_id, delivery_note_id, ppn_percent, company_id)
+  values (dn.customer_id, dn.id, dn.ppn_percent, dn.company_id) returning id into v_id;
+  insert into public.sales_invoice_items (parent_id, idx, item_id, qty, rate, discount_percent)
+  select v_id, idx, item_id, qty, rate, discount_percent from public.delivery_note_items where parent_id = p_dn;
+  return v_id;
+end $$;
+
+-- Penerimaan barang memakai harga bersih setelah diskon PO (untuk nilai persediaan)
+create or replace function public.make_purchase_receipt(p_po uuid)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare po public.purchase_orders; v_id uuid;
+begin
+  perform public.require_perm('purchase_receipts', 'write');
+  select * into po from public.purchase_orders where id = p_po;
+  if po.docstatus is distinct from 1 then raise exception 'Purchase Order harus sudah disubmit'; end if;
+  if po.per_received >= 100 then raise exception 'Purchase Order sudah diterima penuh'; end if;
+  insert into public.purchase_receipts (supplier_id, purchase_order_id, set_warehouse_id, ppn_percent, company_id)
+  values (po.supplier_id, po.id, po.set_warehouse_id, po.ppn_percent, po.company_id) returning id into v_id;
+  insert into public.purchase_receipt_items (parent_id, idx, item_id, qty, rate, warehouse_id, po_item_id)
+  select v_id, row_number() over (order by idx), item_id, qty - received_qty,
+         round(rate * (1 - discount_percent / 100), 2),
+         coalesce(warehouse_id, po.set_warehouse_id), id
+    from public.purchase_order_items where parent_id = p_po and qty > received_qty;
+  return v_id;
+end $$;
+
 -- ================= supabase/seed.sql =================
 -- Data awal contoh. Silakan ubah sesuai kondisi riil sebelum go-live.
 insert into public.companies (name, abbr, address, city, default_ppn)

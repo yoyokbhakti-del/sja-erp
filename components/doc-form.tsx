@@ -12,6 +12,9 @@ import { usePerms } from "@/components/perms";
 
 type Row = Record<string, unknown>;
 const NUMERIC = ["int", "float", "currency", "percent"];
+// Jumlah baris = qty x harga x (1 - diskon%), dibulatkan 2 desimal (sama dengan rumus di database)
+const lineAmount = (r: Row) =>
+  Math.round(Number(r.qty ?? 0) * Number(r.rate ?? r.basic_rate ?? 0) * (1 - Number(r.discount_percent ?? 0) / 100) * 100) / 100;
 const ZERO_IF_EMPTY = ["float", "currency", "percent"];   // kolom angka NOT NULL: kosong = 0
 
 function childSelect(fields: Field[]) {
@@ -159,7 +162,7 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
     if (!dt.child || docstatus !== 0) return {};
     if (dt.liveTotals) return dt.liveTotals(doc, rows);
     const qty = rows.reduce((s, r) => s + Number(r.qty ?? 0), 0);
-    const amt = rows.reduce((s, r) => s + Math.round(Number(r.qty ?? 0) * Number(r.rate ?? r.basic_rate ?? 0) * 100) / 100, 0);
+    const amt = rows.reduce((s, r) => s + lineAmount(r), 0);
     const tax = Math.round(amt * Number(doc.ppn_percent ?? 0)) / 100;
     return { total_qty: qty, net_total: amt, tax_amount: tax, grand_total: amt + tax, total_amount: amt, outstanding_amount: amt + tax };
   }, [rows, doc, docstatus, dt]);
@@ -444,7 +447,7 @@ function ChildTable({ dt, rows, editable, onCell, onAdd, onRemove }: {
               {fields.map((f) => (
                 <td key={f.name} className={cn("px-1 py-1", f.width)}>
                   {f.name === "amount" ? (
-                    <div className="flex h-8 items-center justify-end px-2 text-sm tabular-nums">{rupiah(Math.round(Number(r.qty ?? 0) * Number(r.rate ?? 0) * 100) / 100)}</div>
+                    <div className="flex h-8 items-center justify-end px-2 text-sm tabular-nums">{rupiah(lineAmount(r))}</div>
                   ) : f.readOnly ? (
                     <div className={cn("flex h-8 items-center px-2 text-xs text-zinc-600", NUMERIC.includes(f.type) && "justify-end tabular-nums")}>{f.type === "currency" ? rupiah(r[f.name]) : NUMERIC.includes(f.type) ? number(r[f.name]) : String(r[f.name] ?? "")}</div>
                   ) : (
