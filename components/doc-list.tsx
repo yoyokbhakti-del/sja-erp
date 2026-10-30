@@ -54,6 +54,10 @@ export function DocList({ dt }: { dt: DocType }) {
     setLoading(false);
   }
 
+  useEffect(() => {
+    const initial = new URLSearchParams(window.location.search).get("q");
+    if (initial) setQ(initial);
+  }, []);
   useEffect(() => { const t = setTimeout(load, 250); return () => clearTimeout(t); }, [q, status, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const statusOptions = dt.key === "purchase_orders" ? ["Menunggu Penerimaan", "Diterima Sebagian", "Selesai"]

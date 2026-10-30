@@ -81,6 +81,7 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
+  const [usedBy, setUsedBy] = useState<Row[] | null>(null);
   const [activity, setActivity] = useState<Row[]>([]);
   const [connections, setConnections] = useState<{ dt: DocType; rows: Row[] }[]>([]);
   const [loaded, setLoaded] = useState(isNew);
@@ -252,9 +253,17 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
     if (newId) router.push(docUrl(dt.key, String(newId)));
   }
   async function remove() {
-    if (!confirm(`Hapus ${String(doc[dt.titleField] ?? "")}?`)) return;
-    setBusy(true);
+    const label = String(doc[dt.titleField] ?? "");
+    const extra = docstatus === 2 ? "\nDokumen batal ini akan dihapus permanen (riwayatnya tetap ada di Audit Trail)." : "";
+    if (!confirm(`Hapus ${label}?${extra}`)) return;
+    setErr(""); setUsedBy(null); setBusy(true);
     const { error } = await sb.from(dt.key).delete().eq(keyField, id);
+    if (error && /foreign key/i.test(error.message)) {
+      const { data } = await sb.rpc("where_used", { p_table: dt.key, p_id: String(doc[keyField] ?? id) });
+      setBusy(false);
+      setUsedBy((data as Row[]) ?? []);
+      return;
+    }
     setBusy(false);
     if (error) return setErr(errMsg(error));
     router.push(docUrl(dt.key));
@@ -289,7 +298,7 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
         {!isNew && docstatus > 0 && !["purchase_orders", "sales_orders"].includes(dt.key) && dt.submittable && (
           <Link href={`/reports/general-ledger?voucher=${id}`}><Button variant="outline">Jurnal</Button></Link>
         )}
-        {!isNew && editable && (!dt.submittable || docstatus === 0) && (
+        {!isNew && can(dt.key, "write") && (!dt.submittable || docstatus !== 1) && (
           <Button variant="ghost" onClick={remove} disabled={busy} title="Hapus"><Trash2 size={14} /></Button>
         )}
         {!isNew && dt.submittable && docstatus === 2 && can(dt.key, "write") && (
@@ -320,6 +329,31 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
 
       <div className="space-y-3">
         {err && <Alert onClose={() => setErr("")}>{err}</Alert>}
+        {usedBy && (
+          <Alert onClose={() => setUsedBy(null)}>
+            <b>{String(doc[dt.titleField] ?? "")} tidak bisa dihapus karena masih dipakai di:</b>
+            <ul className="mt-1 list-disc pl-5">
+              {usedBy.map((u, i) => {
+                const target = byKey[String(u.doctype)];
+                const isHist = !target;
+                return (
+                  <li key={i}>
+                    {isHist ? <>{String(u.doctype)} ({String(u.doc_name)})</> : (
+                      <><span className="text-red-900/70">{target.label}</span>{" "}
+                        <Link className="font-medium underline" href={`${docUrl(target.key)}?q=${encodeURIComponent(String(u.doc_name))}`}>{String(u.doc_name)}</Link>
+                        {u.status ? <> ({String(u.status)})</> : null}</>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="mt-2">
+              {usedBy.some((u) => !byKey[String(u.doctype)] || ["Submitted", "Selesai", "Lunas", "Dibayar Sebagian", "Belum Dibayar", "Menunggu Penerimaan", "Menunggu Pengiriman", "Diterima Sebagian", "Terkirim Sebagian"].includes(String(u.status)))
+                ? <>Data ini sudah dipakai di transaksi yang sah, jadi tidak boleh dihapus.{dt.fields.some((f) => f.name === "disabled") && <> Centang <b>Nonaktif</b> lalu Simpan supaya tidak muncul lagi di pilihan.</>}</>
+                : <>Hapus dulu dokumen Draft/Dibatalkan di atas (buka dokumennya → ikon tempat sampah), lalu coba hapus lagi.</>}
+            </div>
+          </Alert>
+        )}
         {msg && <Alert kind="success" onClose={() => setMsg("")}>{msg}</Alert>}
         {docstatus === 2 && <Alert kind="info">Dokumen ini sudah dibatalkan. Gunakan “Amend / Duplikat” untuk membuat versi baru.</Alert>}
 
