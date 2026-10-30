@@ -47,7 +47,6 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
   // ---------------- kolom tabel ----------------
   const gross = (r: Row) => Number(r.qty || 0) * Number(r.rate || 0);
   const nameCol: Col = { h: "Nama Barang", v: (r) => r.item?.name };
-  const brandCol: Col = { h: "Merk", w: "21mm", v: (r) => r.item?.brand };
   const qtyCol: Col = { h: "Kuant.", w: "15mm", cls: "r", v: (r) => n0(r.qty) };
   const uomCol: Col = { h: "Sat.", w: "13mm", v: (r) => r.item?.stock_uom };
   const noCol: Col = { h: "No.", w: "8.5mm", cls: "c", v: (_r, i) => i + 1 };
@@ -59,18 +58,18 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
     { h: "Nilai Invoice", w: "32mm", cls: "r", v: (r) => n2((r.si ?? r.pi)?.grand_total) },
     { h: "Dibayar", w: "32mm", cls: "r", v: (r) => n2(r.allocated_amount) },
   ] : priced ? [
-    noCol, nameCol, brandCol, qtyCol, uomCol,
+    noCol, nameCol, qtyCol, uomCol,
     { h: "Harga", w: "24mm", cls: "r", v: (r) => n0(r.rate) },
     { h: <>Disk<br />(%)</>, w: "10mm", cls: "c", v: (r) => (Number(r.discount_percent) ? n0(r.discount_percent) : "") },
     { h: <>Diskon<br />(Rp)</>, w: "18mm", cls: "r", v: (r) => (Number(r.discount_percent) ? n0(gross(r) - Number(r.amount)) : "") },
     { h: "Jumlah", w: "30mm", cls: "r", v: (r) => n0(r.amount) },
   ] : key === "delivery_notes" ? [
-    noCol, nameCol, brandCol,
-    { h: "No. Batch", w: "38mm", v: (r) => r.batch_allocation || r.batch_no },
+    noCol, nameCol,
+    { h: "No. Batch", w: "45mm", v: (r) => r.batch_allocation || r.batch_no },
     qtyCol, uomCol,
   ] : [
-    noCol, nameCol, brandCol,
-    { h: "No. Batch", w: "26mm", v: (r) => r.batch_no },
+    noCol, nameCol,
+    { h: "No. Batch", w: "32mm", v: (r) => r.batch_no },
     { h: "Tgl. Prod.", w: "23mm", v: (r) => tanggal(r.mfg_date) },
     { h: "Exp.", w: "23mm", v: (r) => tanggal(r.expiry_date) },
     qtyCol, uomCol,
@@ -117,6 +116,7 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
     [{ label: doc.payment_type === "Bayar" ? "Penerima" : "Penyetor" }, { label: "Kasir" }, { label: signer }];
 
   const pages = chunk(rows, ROWS_PER_PAGE);
+  const qIdx = cols.indexOf(qtyCol);
   const totalQty = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
   const subTotal = rows.reduce((s, r) => s + gross(r), 0);
   const discTotal = subTotal - Number(doc.net_total || 0);
@@ -145,7 +145,6 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
             {/* KOP */}
             <div className="cf-top">
               <div className="cf-brand">
-                <img src="/logo-sja.png" alt="" className="cf-logo" />
                 <div>
                   <div className="cf-co">{head.toUpperCase()}</div>
                   {addr && <div className="cf-co-addr">{addr}</div>}
@@ -192,6 +191,15 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
               {isPay && last && (
                 <tfoot><tr><td colSpan={cols.length - 1} className="r b">Total Rp</td><td className="r b">{n2(doc.paid_amount)}</td></tr></tfoot>
               )}
+              {!isPay && last && (
+                <tfoot>
+                  <tr className="cf-qtyrow">
+                    <td colSpan={qIdx} className="r b cf-nob">Total Kuantitas</td>
+                    <td className="r b">{n0(totalQty)}</td>
+                    {cols.length - qIdx - 1 > 0 && <td colSpan={cols.length - qIdx - 1} className="cf-nob" />}
+                  </tr>
+                </tfoot>
+              )}
             </table>
 
             {/* BAWAH */}
@@ -200,9 +208,6 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
             ) : (
               <div className="cf-bottom">
                 <div className="cf-left">
-                  {!isPay && (
-                    <div className="cf-qty"><span className="b">Total Kuantitas</span><span className="cf-box r">{n0(totalQty)}</span></div>
-                  )}
                   {(priced || isPay) && (
                     <div className="cf-words"><span className="b">Terbilang :</span> <i>{grand ? terbilang(grand) : ""}</i></div>
                   )}
@@ -253,7 +258,7 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
 const CSS = `
 @page { size: 241.3mm 139.7mm; margin: 4mm 12mm; }
 .cf-root { background: #e5e5e5; min-height: 100vh; padding: 16px 0 40px; color: #000;
-  font-family: Tahoma, Verdana, "DejaVu Sans", Arial, sans-serif; font-size: 8.4pt; line-height: 1.25; }
+  font-family: Tahoma, Verdana, sans-serif; font-size: 8.4pt; line-height: 1.25; }
 .cf-toolbar { width: 241.3mm; margin: 0 auto 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: system-ui, sans-serif; }
 .cf-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #000; background: #fff; color: #000; padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; }
 .cf-primary { background: #000; color: #fff; }
@@ -266,7 +271,6 @@ const CSS = `
 .b { font-weight: 700; } .r { text-align: right; } .c { text-align: center; } .small { font-size: 7.8pt; }
 .cf-top { display: flex; justify-content: space-between; align-items: flex-start; }
 .cf-brand { display: flex; gap: 3mm; align-items: flex-start; max-width: 140mm; }
-.cf-logo { width: 13mm; height: 13.7mm; object-fit: contain; filter: grayscale(1); }
 .cf-co { font-weight: 700; font-size: 9pt; }
 .cf-co-addr { font-weight: 700; font-size: 8.4pt; }
 .cf-title { font-weight: 700; font-size: 10.5pt; text-decoration: underline; text-underline-offset: 2px; white-space: nowrap; }
@@ -278,6 +282,8 @@ const CSS = `
 .cf-items { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .cf-items th, .cf-items td { border: 0.7pt solid #000; padding: 0 1.2mm; height: 4.6mm; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .cf-items tfoot td { height: 5mm; }
+.cf-items td.cf-nob { border: none; padding-right: 2mm; }
+.cf-qtyrow td { border-top: none; }
 .cf-items th { font-weight: 700; height: 7mm; line-height: 1.1; white-space: normal; text-overflow: clip; text-align: left; padding: 0 .8mm; }
 .cf-items th.r, .cf-items td.r { text-align: right; } .cf-items th.c, .cf-items td.c { text-align: center; }
 .cf-cont { margin-top: auto; text-align: right; font-style: italic; }
