@@ -39,6 +39,21 @@ const CFG: Record<string, Cfg> = {
   stock_entries:     { priced: true, batch: true, signs: ["Dibuat oleh", "Diperiksa", "Disetujui"] },
 };
 
+// Ukuran kertas per dokumen. Continuous form 9,5 x 11 inci = 241,3 x 279,4 mm (printer dot-matrix).
+type Paper = { name: string; w: number; h: number; mx: number; my: number };
+const A4: Paper = { name: "A4 (210 × 297 mm)", w: 210, h: 297, mx: 12, my: 12 };
+const CF: Paper = { name: "Continuous form 9,5 × 11 inci (241,3 × 279,4 mm)", w: 241.3, h: 279.4, mx: 10, my: 8 };
+const CONTINUOUS = new Set(["sales_invoices", "delivery_notes", "payment_entries", "purchase_receipts", "purchase_orders"]);
+const paperFor = (key: string) => (CONTINUOUS.has(key) ? CF : A4);
+
+function pageCss(p: Paper) {
+  return `
+@page { size: ${p.w}mm ${p.h}mm; margin: ${p.my}mm ${p.mx}mm; }
+.pf-toolbar, .pf-sheet { width: ${p.w}mm; }
+.pf-sheet { min-height: ${p.h}mm; padding: ${p.my + 4}mm ${p.mx + 2}mm; }
+@media print { .pf-sheet { width: auto; min-height: ${p.h - 2 * p.my - 2}mm; padding: 0; } }`;
+}
+
 function partyEmbed(dt: DocType) {
   const parts: string[] = [];
   const has = (n: string) => dt.fields.some((f) => f.name === n);
@@ -107,12 +122,12 @@ export default function PrintPage() {
 
   return (
     <div className="pf-root">
-      <style>{CSS}</style>
+      <style>{CSS + pageCss(paperFor(dt.key))}</style>
 
       <div className="pf-toolbar no-print">
         <button className="pf-btn pf-primary" onClick={() => window.print()}><Printer size={15} /> Cetak / Simpan PDF</button>
         <button className="pf-btn" onClick={() => window.close()}><X size={15} /> Tutup</button>
-        <span className="pf-hint">Tip: di jendela cetak pilih kertas A4 dan matikan &ldquo;Headers and footers&rdquo;.</span>
+        <span className="pf-hint">Kertas: <b>{paperFor(dt.key).name}</b>. Di jendela cetak pilih ukuran kertas yang sama, Margins: <i>Default</i>, Scale: <i>100</i>, dan matikan &ldquo;Headers and footers&rdquo;.</span>
       </div>
 
       <div className="pf-sheet">
@@ -380,15 +395,14 @@ function JournalBody({ doc, rows }: { doc: Row; rows: Row[] }) {
 
 // ---------------------------------------------------------------------------
 const CSS = `
-@page { size: A4; margin: 12mm; }
 .pf-root { color: #000; min-height: 100vh; background: #e5e5e5; padding: 18px 0 40px;
   font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.4; }
-.pf-toolbar { width: 210mm; margin: 0 auto 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pf-toolbar { margin: 0 auto 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .pf-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #000; background: #fff; color: #000;
   padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; font-family: system-ui, sans-serif; }
 .pf-primary { background: #000; color: #fff; }
 .pf-hint { font-size: 11.5px; color: #555; font-family: system-ui, sans-serif; }
-.pf-sheet { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 14mm;
+.pf-sheet { position: relative; margin: 0 auto; background: #fff;
   box-shadow: 0 1px 10px rgba(0,0,0,.15); display: flex; flex-direction: column; overflow: hidden; }
 .pf-watermark { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%) rotate(-28deg); font-size: 90pt; font-weight: 700;
   letter-spacing: .08em; color: transparent; -webkit-text-stroke: 1.5px rgba(0,0,0,.12); pointer-events: none; white-space: nowrap; z-index: 0; }
@@ -439,6 +453,6 @@ const CSS = `
   .no-print { display: none !important; }
   html, body { background: #fff !important; }
   .pf-root { background: #fff; padding: 0; min-height: 0; }
-  .pf-sheet { box-shadow: none; width: auto; min-height: 270mm; padding: 0; margin: 0; }
+  .pf-sheet { box-shadow: none; margin: 0; }
 }
 `;
