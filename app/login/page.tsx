@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Alert, Button, Card, Input } from "@/components/ui";
 import { errMsg } from "@/lib/format";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const [mode, setMode] = useState<"login" | "daftar">("login");
@@ -57,6 +58,7 @@ export default function LoginPage() {
           onClick={() => setMode(mode === "login" ? "daftar" : "login")}>
           {mode === "login" ? "Belum punya akun? Daftar" : "Sudah punya akun? Masuk"}
         </button>
+        <ThemeToggle className="mt-4" />
       </Card>
     </div>
   );

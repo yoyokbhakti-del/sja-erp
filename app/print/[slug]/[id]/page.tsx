@@ -14,6 +14,9 @@ export default function PrintPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [company, setCompany] = useState<Row | null>(null);
 
+  // Dokumen cetak selalu tampil terang
+  useEffect(() => { document.documentElement.classList.remove("dark"); }, []);
+
   useEffect(() => {
     if (!dt) return;
     const sb = supabaseBrowser();

@@ -6,6 +6,7 @@ import { DOCTYPES, MODULES, docUrl } from "@/lib/doctypes";
 import { cn } from "@/lib/format";
 import { usePerms } from "@/components/perms";
 import { supabaseBrowser } from "@/lib/supabase/client";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const ICONS = { Stok: Boxes, Pembelian: ShoppingCart, Penjualan: Truck, Akuntansi: Landmark, Pengaturan: Settings };
 
@@ -50,6 +51,7 @@ export function Sidebar() {
         })}
       </nav>
       <div className="border-t border-zinc-200 p-3">
+        <ThemeToggle className="mb-2" />
         <div className="mb-2 flex items-center gap-2">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold uppercase text-white">
             {email.slice(0, 1)}
