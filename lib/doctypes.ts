@@ -100,7 +100,7 @@ const items: DocType = {
   titleField: "code", subtitleField: "name", linkLabel: ["code", "name"],
   searchFields: ["code", "name"], orderBy: { column: "code", ascending: true },
   fields: [
-    { name: "code", label: "Kode Item", type: "data", required: true, inList: true },
+    { name: "code", label: "Kode Item (otomatis)", type: "data", readOnly: true, inList: true },
     { name: "name", label: "Nama Item", type: "data", required: true, inList: true },
     { name: "item_group_id", label: "Grup Item", type: "link", link: "item_groups", inList: true },
     { name: "item_type", label: "Jenis", type: "select", required: true, inList: true, default: "Produk Jadi",
@@ -130,7 +130,7 @@ const warehouses: DocType = {
   titleField: "code", subtitleField: "name", linkLabel: ["code", "name"],
   searchFields: ["code", "name"], orderBy: { column: "code", ascending: true },
   fields: [
-    { name: "code", label: "Kode Gudang", type: "data", required: true, inList: true },
+    { name: "code", label: "Kode Gudang (otomatis)", type: "data", readOnly: true, inList: true },
     { name: "name", label: "Nama Gudang", type: "data", required: true, inList: true },
     { name: "warehouse_type", label: "Tipe", type: "select", inList: true, default: "Umum",
       options: ["Umum", "Karantina", "Bahan Baku", "Bahan Kemas", "Produk Jadi", "Reject", "Transit"] },
@@ -143,7 +143,7 @@ const suppliers: DocType = {
   titleField: "code", subtitleField: "name", linkLabel: ["code", "name"],
   searchFields: ["code", "name", "city"], orderBy: { column: "code", ascending: true },
   fields: [
-    { name: "code", label: "Kode Supplier", type: "data", required: true, inList: true },
+    { name: "code", label: "Kode Supplier (otomatis)", type: "data", readOnly: true, inList: true },
     { name: "name", label: "Nama Supplier", type: "data", required: true, inList: true },
     { name: "supplier_group", label: "Grup", type: "select", options: ["Lokal", "Impor", "Jasa"], default: "Lokal", inList: true },
     { name: "is_approved", label: "Approved Vendor (CPOHB)", type: "check", inList: true },
@@ -163,7 +163,7 @@ const customers: DocType = {
   titleField: "code", subtitleField: "name", linkLabel: ["code", "name"],
   searchFields: ["code", "name", "city"], orderBy: { column: "code", ascending: true },
   fields: [
-    { name: "code", label: "Kode Customer", type: "data", required: true, inList: true },
+    { name: "code", label: "Kode Customer (otomatis)", type: "data", readOnly: true, inList: true },
     { name: "name", label: "Nama Customer", type: "data", required: true, inList: true },
     { name: "customer_group", label: "Grup", type: "select", default: "Distributor", inList: true,
       options: ["Distributor", "Poultry Shop", "Peternak", "Tambak", "Pemerintah", "Lainnya"] },

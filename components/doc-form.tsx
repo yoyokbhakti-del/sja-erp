@@ -57,6 +57,7 @@ function FieldInput({ f, value, row, onChange, disabled }: {
       step={f.type === "int" ? 1 : "any"}
       value={value === null || value === undefined ? "" : String(value)}
       readOnly={ro}
+      placeholder={ro && f.type === "data" ? "Dibuat otomatis saat disimpan" : undefined}
       className={NUMERIC.includes(f.type) ? "text-right tabular-nums" : ""}
       onChange={(e) => {
         const v = e.target.value;
@@ -267,7 +268,8 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
     if (f.section) sections.push({ title: f.section, fields: [] });
     sections[sections.length - 1].fields.push(f);
   }
-  const visible = (f: Field) => (!f.dependsOn || f.dependsOn(doc)) && !(isNew && (f.name === "name" || f.name === "status"));
+  // Pada dokumen transaksi, "name" = nomor dokumen otomatis -> disembunyikan saat baru. Pada master, "name" = nama yang wajib diisi.
+  const visible = (f: Field) => (!f.dependsOn || f.dependsOn(doc)) && !(isNew && dt.submittable && (f.name === "name" || f.name === "status"));
   const valueOf = (f: Field) => (f.name in live && docstatus === 0 ? (live as Row)[f.name] : doc[f.name]);
 
   const title = isNew ? `${dt.label} Baru` : String(doc[dt.titleField] ?? "");
