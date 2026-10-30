@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { Alert, Button, Card, Input } from "@/components/ui";
 import { errMsg } from "@/lib/format";
@@ -11,6 +11,9 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState("");
   const [err, setErr] = useState("");
   const [info, setInfo] = useState("");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("confirmed")) setInfo("Email sudah dikonfirmasi. Silakan masuk.");
+  }, []);
   const [busy, setBusy] = useState(false);
 
   async function go(e: React.FormEvent) {
@@ -22,7 +25,7 @@ export default function LoginPage() {
       if (error) setErr(error.message === "Invalid login credentials" ? "Email atau password salah" : errMsg(error));
       else window.location.href = "/";
     } else {
-      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
+      const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: fullName }, emailRedirectTo: `${window.location.origin}/auth/callback` } });
       if (error) setErr(errMsg(error));
       else if (data.session) window.location.href = "/";
       else setInfo("Akun dibuat. Cek email untuk konfirmasi, lalu login. Minta admin memberikan role yang sesuai.");

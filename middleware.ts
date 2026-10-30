@@ -23,6 +23,7 @@ export async function middleware(request: NextRequest) {
 
   let response = NextResponse.next({ request });
   const isLogin = request.nextUrl.pathname.startsWith("/login");
+  if (request.nextUrl.pathname.startsWith("/auth/")) return NextResponse.next({ request });
 
   try {
     const supabase = createServerClient(URL_, KEY, {
