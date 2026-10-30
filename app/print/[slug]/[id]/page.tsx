@@ -6,6 +6,7 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { bySlug, type DocType } from "@/lib/doctypes";
 import { number, rupiah, tanggal, terbilang, waktu } from "@/lib/format";
 import { FORM_DOCS, FormPrint } from "@/components/print-form";
+import { DotMatrixPrint } from "@/components/dotmatrix-print";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -80,6 +81,7 @@ export default function PrintPage() {
   const [company, setCompany] = useState<Row | null>(null);
   const [maker, setMaker] = useState<string>("");
   const [printedBy, setPrintedBy] = useState<string>("");
+  const [graphic, setGraphic] = useState(false);
 
   // Dokumen cetak selalu tampil terang
   useEffect(() => { document.documentElement.classList.remove("dark"); }, []);
@@ -118,7 +120,10 @@ export default function PrintPage() {
   if (!dt) return <div style={{ padding: 40 }}>Dokumen tidak dikenal</div>;
   if (!doc || !company) return <div style={{ padding: 40, color: "#71717a", fontFamily: "system-ui" }}>Memuat dokumen…</div>;
 
-  if (FORM_DOCS.has(dt.key)) return <FormPrint dt={dt} doc={doc} rows={rows} company={company} maker={maker} />;
+  if (FORM_DOCS.has(dt.key)) {
+    if (!graphic) return <DotMatrixPrint dtKey={dt.key} doc={doc} rows={rows} company={company} onGraphic={() => setGraphic(true)} />;
+    return <FormPrint dt={dt} doc={doc} rows={rows} company={company} maker={maker} />;
+  }
 
   const title = typeof dt.printTitle === "function" ? dt.printTitle(doc) : (dt.printTitle ?? dt.label.toUpperCase());
   const date = doc.posting_date ?? doc.transaction_date;
