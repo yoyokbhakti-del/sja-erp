@@ -103,7 +103,6 @@ export default function PrintPage() {
   const title = typeof dt.printTitle === "function" ? dt.printTitle(doc) : (dt.printTitle ?? dt.label.toUpperCase());
   const date = doc.posting_date ?? doc.transaction_date;
   const watermark = doc.docstatus === 0 ? "DRAFT" : doc.docstatus === 2 ? "DIBATALKAN" : "";
-  const initials = (company.abbr || company.name || "").replace(/^(CV|PT)\.?\s*/i, "").slice(0, 3).toUpperCase();
   const addr = [company.address, company.city].filter(Boolean).join(", ");
 
   return (
@@ -113,7 +112,7 @@ export default function PrintPage() {
       <div className="pf-toolbar no-print">
         <button className="pf-btn pf-primary" onClick={() => window.print()}><Printer size={15} /> Cetak / Simpan PDF</button>
         <button className="pf-btn" onClick={() => window.close()}><X size={15} /> Tutup</button>
-        <span className="pf-hint">Tip: di jendela cetak pilih kertas A4, matikan &ldquo;Headers and footers&rdquo;, dan aktifkan &ldquo;Background graphics&rdquo;.</span>
+        <span className="pf-hint">Tip: di jendela cetak pilih kertas A4 dan matikan &ldquo;Headers and footers&rdquo;.</span>
       </div>
 
       <div className="pf-sheet">
@@ -122,7 +121,6 @@ export default function PrintPage() {
         {/* ---------- KOP ---------- */}
         <header className="pf-head">
           <div className="pf-brand">
-            <div className="pf-logo">{initials}</div>
             <div>
               <div className="pf-company">{company.name}</div>
               {addr && <div className="pf-small">{addr}</div>}
@@ -132,9 +130,9 @@ export default function PrintPage() {
             </div>
           </div>
           <div className="pf-titlebox">
-            <div className="pf-title" style={title.length > 16 ? { fontSize: "12.5pt" } : undefined}>{title}</div>
+            <div className="pf-title" style={title.length > 16 ? { fontSize: "11.5pt" } : undefined}>{title}</div>
             <div className="pf-docno">{doc.name}</div>
-            {watermark && <div className={`pf-chip ${doc.docstatus === 2 ? "pf-chip-red" : ""}`}>{watermark === "DRAFT" ? "Draft – belum sah" : "Dibatalkan"}</div>}
+            {watermark && <div className="pf-chip">{watermark === "DRAFT" ? "Draft – belum sah" : "Dibatalkan"}</div>}
           </div>
         </header>
         <div className="pf-rule" />
@@ -382,76 +380,61 @@ function JournalBody({ doc, rows }: { doc: Row; rows: Row[] }) {
 
 // ---------------------------------------------------------------------------
 const CSS = `
-@page { size: A4; margin: 12mm 12mm 12mm 12mm; }
-.pf-root { --ac: #0f4c5c; --ac-soft: #e7f0f2; --ink: #1c1f23; --mute: #5f6670; --line: #d9dee3;
-  min-height: 100vh; background: #e9ecef; padding: 18px 0 40px; color: var(--ink);
-  font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif; font-size: 10pt; line-height: 1.45;
-  -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+@page { size: A4; margin: 12mm; }
+.pf-root { color: #000; min-height: 100vh; background: #e5e5e5; padding: 18px 0 40px;
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif; font-size: 9.5pt; line-height: 1.4; }
 .pf-toolbar { width: 210mm; margin: 0 auto 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.pf-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #c9ced4; background: #fff; color: #222;
-  padding: 7px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
-.pf-btn:hover { background: #f5f6f7; }
-.pf-primary { background: var(--ac); border-color: var(--ac); color: #fff; }
-.pf-primary:hover { background: #0c3d4a; }
-.pf-hint { font-size: 11.5px; color: #6b7280; }
-.pf-sheet { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 14mm 14mm 12mm;
-  box-shadow: 0 2px 18px rgba(0,0,0,.12); display: flex; flex-direction: column; overflow: hidden; }
-.pf-watermark { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%) rotate(-28deg); font-size: 92pt; font-weight: 800;
-  letter-spacing: .08em; color: rgba(185, 28, 28, .08); pointer-events: none; white-space: nowrap; z-index: 0; }
-.pf-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10mm; position: relative; z-index: 1; }
-.pf-brand { display: flex; gap: 4mm; align-items: center; flex: 1; min-width: 0; }
-.pf-logo { width: 15mm; height: 15mm; border-radius: 3mm; background: var(--ac); color: #fff; display: flex; align-items: center;
-  justify-content: center; font-weight: 800; font-size: 13pt; letter-spacing: .04em; flex-shrink: 0; }
-.pf-company { font-size: 14pt; font-weight: 700; letter-spacing: -.01em; }
+.pf-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #000; background: #fff; color: #000;
+  padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; font-family: system-ui, sans-serif; }
+.pf-primary { background: #000; color: #fff; }
+.pf-hint { font-size: 11.5px; color: #555; font-family: system-ui, sans-serif; }
+.pf-sheet { position: relative; width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; padding: 14mm;
+  box-shadow: 0 1px 10px rgba(0,0,0,.15); display: flex; flex-direction: column; overflow: hidden; }
+.pf-watermark { position: absolute; top: 42%; left: 50%; transform: translate(-50%,-50%) rotate(-28deg); font-size: 90pt; font-weight: 700;
+  letter-spacing: .08em; color: transparent; -webkit-text-stroke: 1.5px rgba(0,0,0,.12); pointer-events: none; white-space: nowrap; z-index: 0; }
+.pf-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10mm; position: relative; z-index: 1; }
+.pf-brand { flex: 1; min-width: 0; }
+.pf-company { font-size: 13pt; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
 .pf-titlebox { text-align: right; flex-shrink: 0; white-space: nowrap; }
-.pf-title { font-size: 16pt; font-weight: 800; color: var(--ac); letter-spacing: .03em; line-height: 1.1; }
-.pf-docno { font-family: ui-monospace, "SF Mono", Consolas, monospace; font-size: 10.5pt; margin-top: 1.5mm; font-weight: 600; }
-.pf-chip { display: inline-block; margin-top: 2mm; padding: .5mm 2.5mm; border-radius: 99px; font-size: 8pt; font-weight: 600;
-  background: #fef3c7; color: #92400e; }
-.pf-chip-red { background: #fee2e2; color: #991b1b; }
-.pf-rule { height: 1.2mm; margin: 5mm 0 6mm; background: linear-gradient(90deg, var(--ac) 0 38%, var(--ac-soft) 38% 100%); border-radius: 1mm; }
-.pf-info { display: grid; grid-template-columns: 1.1fr 1fr; gap: 6mm; margin-bottom: 6mm; position: relative; z-index: 1; }
-.pf-party { border-left: 1mm solid var(--ac); background: #f7f9fa; padding: 3mm 4mm; border-radius: 0 2mm 2mm 0; }
-.pf-party-name { font-size: 11.5pt; font-weight: 700; margin-bottom: .5mm; }
-.pf-label { font-size: 7.5pt; text-transform: uppercase; letter-spacing: .09em; color: var(--mute); font-weight: 600; margin-bottom: 1mm; }
+.pf-title { font-size: 14pt; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.pf-docno { font-size: 10pt; margin-top: 1mm; }
+.pf-chip { display: inline-block; margin-top: 1.5mm; padding: 0 2mm; border: 1px solid #000; font-size: 8pt; font-weight: 700; text-transform: uppercase; }
+.pf-rule { border-top: 2px solid #000; border-bottom: 0.5px solid #000; height: 1.2mm; margin: 3mm 0 5mm; }
+.pf-info { display: grid; grid-template-columns: 1.1fr 1fr; gap: 8mm; margin-bottom: 5mm; position: relative; z-index: 1; }
+.pf-party { }
+.pf-party-name { font-size: 10.5pt; font-weight: 700; }
+.pf-label { font-size: 8pt; font-weight: 700; text-transform: uppercase; margin-bottom: .8mm; }
 .pf-meta { width: 100%; border-collapse: collapse; align-self: start; }
-.pf-meta td { padding: 1.1mm 0; border-bottom: 1px dotted var(--line); vertical-align: top; }
-.pf-meta td:first-child { color: var(--mute); width: 42%; padding-right: 3mm; }
-.pf-meta td:last-child { font-weight: 600; text-align: right; }
+.pf-meta td { padding: .6mm 0; vertical-align: top; }
+.pf-meta td:first-child { width: 40%; padding-right: 2mm; }
+.pf-meta td:first-child::after { content: ":"; float: right; }
+.pf-meta td:last-child { padding-left: 2mm; }
 .pf-items { width: 100%; border-collapse: collapse; position: relative; z-index: 1; }
-.pf-items thead th { background: var(--ac); color: #fff; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .05em;
-  padding: 2.2mm 2.5mm; text-align: left; }
-.pf-items thead th:first-child { border-radius: 1.5mm 0 0 0; }
-.pf-items thead th:last-child { border-radius: 0 1.5mm 0 0; }
-.pf-items tbody td { padding: 2.2mm 2.5mm; border-bottom: 1px solid var(--line); vertical-align: top; }
-.pf-items tbody tr:nth-child(even) td { background: #f7f9fa; }
-.pf-items tfoot td { padding: 2.2mm 2.5mm; border-top: 1.5px solid var(--ink); font-weight: 600; }
+.pf-items th, .pf-items td { border: 0.6pt solid #000; padding: 1.5mm 2mm; vertical-align: top; text-align: left; }
+.pf-items thead th { font-weight: 700; font-size: 8.5pt; text-transform: uppercase; background: none; }
+.pf-items tfoot td { font-weight: 700; }
 .pf-items tr { break-inside: avoid; }
-.pf-r { text-align: right !important; } .pf-c { text-align: center !important; width: 9mm; }
+.pf-r { text-align: right !important; } .pf-c { text-align: center !important; width: 8mm; }
 .pf-nowrap { white-space: nowrap; }
-.pf-strong { font-weight: 600; } .pf-muted { color: var(--mute); } .pf-small { font-size: 9pt; } .pf-tiny { font-size: 7.8pt; color: var(--mute); }
-.pf-mono { font-family: ui-monospace, Consolas, monospace; font-size: 9pt; }
-.pf-bottom { display: grid; grid-template-columns: 1fr 70mm; gap: 8mm; margin-top: 5mm; break-inside: avoid; position: relative; z-index: 1; }
+.pf-strong { font-weight: 700; } .pf-muted { } .pf-small { font-size: 9pt; } .pf-tiny { font-size: 7.8pt; }
+.pf-mono { font-family: "Courier New", monospace; }
+.pf-bottom { display: grid; grid-template-columns: 1fr 68mm; gap: 8mm; margin-top: 4mm; break-inside: avoid; position: relative; z-index: 1; }
 .pf-notes { display: flex; flex-direction: column; gap: 3mm; font-size: 9pt; }
-.pf-words { background: var(--ac-soft); border-radius: 2mm; padding: 2.5mm 3.5mm; }
-.pf-note { color: var(--mute); font-size: 8.5pt; border-top: 1px dashed var(--line); padding-top: 2mm; }
-.pf-totals { align-self: start; border: 1px solid var(--line); border-radius: 2mm; overflow: hidden; }
-.pf-totals > div { display: flex; justify-content: space-between; padding: 1.8mm 3.5mm; border-bottom: 1px solid var(--line); }
-.pf-totals > div:last-child { border-bottom: none; }
-.pf-grand { background: var(--ac); color: #fff; font-weight: 700; font-size: 11.5pt; }
-.pf-amount { display: grid; grid-template-columns: auto 1fr; gap: 8mm; align-items: center; background: var(--ac-soft);
-  border-radius: 2.5mm; padding: 4mm 6mm; margin-bottom: 6mm; }
-.pf-amount-value { font-size: 20pt; font-weight: 800; color: var(--ac); white-space: nowrap; }
-.pf-amount-words { font-size: 10pt; border-left: 1px solid #c3d6db; padding-left: 6mm; }
+.pf-words { }
+.pf-note { font-size: 8.5pt; }
+.pf-totals { align-self: start; border-collapse: collapse; }
+.pf-totals > div { display: flex; justify-content: space-between; padding: 1mm 0; }
+.pf-grand { border-top: 1px solid #000; border-bottom: 3px double #000; font-weight: 700; font-size: 10.5pt; padding: 1.5mm 0 !important; }
+.pf-amount { display: grid; grid-template-columns: auto 1fr; gap: 8mm; align-items: center; border: 1px solid #000; padding: 3mm 5mm; margin-bottom: 5mm; }
+.pf-amount-value { font-size: 16pt; font-weight: 700; white-space: nowrap; }
+.pf-amount-words { border-left: 1px solid #000; padding-left: 5mm; }
 .pf-signs { display: grid; gap: 8mm; justify-content: space-between; margin-top: auto; padding-top: 12mm; break-inside: avoid; }
 .pf-signs:has(> .pf-sign:only-child) { justify-content: end; }
 .pf-sign { text-align: center; font-size: 9pt; }
-.pf-sign-label { color: var(--mute); }
 .pf-sign-space { height: 20mm; }
-.pf-sign-line { border-top: 1px solid var(--ink); padding-top: 1mm; font-weight: 600; min-height: 5mm; }
-.pf-sign-date { color: var(--mute); font-size: 8pt; margin-top: 1mm; }
-.pf-foot { display: flex; justify-content: space-between; margin-top: 8mm; padding-top: 2mm; border-top: 1px solid var(--line);
-  font-size: 7.5pt; color: var(--mute); }
+.pf-sign-line { border-top: 1px solid #000; padding-top: 1mm; min-height: 5mm; }
+.pf-sign-date { font-size: 8pt; margin-top: 1mm; }
+.pf-foot { display: flex; justify-content: space-between; margin-top: 6mm; padding-top: 1.5mm; border-top: 0.5px solid #000; font-size: 7.5pt; }
 @media print {
   .no-print { display: none !important; }
   html, body { background: #fff !important; }
