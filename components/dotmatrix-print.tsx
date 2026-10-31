@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Download, Printer, RefreshCw, X, FileText } from "lucide-react";
-import { buildPages, toEscP, COLS, LINES, type EscOpts } from "@/lib/escp";
+import { buildPages, buildTestPage, toEscP, COLS, LINES, type EscOpts } from "@/lib/escp";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,7 +109,7 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
     findPrinters();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function print() {
+  async function print(test = false) {
     if (!printer) return findPrinters();
     setBusy(true);
     setStatus({ kind: "info", text: `Mengirim ke ${printer}…` });
@@ -117,9 +117,9 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
       const qz = await connectQz();
       lsSet(LS_PRINTER, printer);
       const cfg = qz.configs.create(printer);
-      const data = toBase64(toEscP(pages, opts));
+      const data = toBase64(toEscP(test ? buildTestPage() : pages, opts));
       await qz.print(cfg, [{ type: "raw", format: "command", flavor: "base64", data }]);
-      setStatus({ kind: "ok", text: `Terkirim ke ${printer} (${pages.length} lembar).` });
+      setStatus({ kind: "ok", text: test ? `Lembar uji terkirim ke ${printer}.` : `Terkirim ke ${printer} (${pages.length} lembar).` });
     } catch (e) {
       setStatus({ kind: "err", text: `Gagal mencetak: ${e instanceof Error ? e.message : String(e)}` });
     } finally { setBusy(false); }
@@ -142,12 +142,13 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
       <style>{CSS}</style>
       <div className="dm-bar">
         <div className="dm-row">
-          <button className="dm-btn dm-primary" disabled={busy} onClick={print}><Printer size={15} /> Cetak ke printer</button>
+          <button className="dm-btn dm-primary" disabled={busy} onClick={() => print()}><Printer size={15} /> Cetak ke printer</button>
           <select className="dm-sel" value={printer} onChange={(e) => setPrinter(e.target.value)} disabled={!printers.length}>
             {!printers.length && <option value="">— printer belum ditemukan —</option>}
             {printers.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           <button className="dm-btn" disabled={busy} onClick={findPrinters}><RefreshCw size={14} /> Cari printer</button>
+          <button className="dm-btn" disabled={busy} onClick={() => print(true)}>Cetak lembar uji</button>
           <button className="dm-btn" onClick={download}><Download size={14} /> Unduh .prn</button>
           <button className="dm-btn" onClick={onGraphic}><FileText size={14} /> Cetak grafis (PDF)</button>
           <button className="dm-btn" onClick={() => window.close()}><X size={14} /> Tutup</button>

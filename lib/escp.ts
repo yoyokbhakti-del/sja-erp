@@ -219,7 +219,7 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     }
 
     // ---------- tabel ----------
-    const t0 = 13;
+    const t0 = 12;
     cv.put(t0, 0, line(ws, "┌", "┬", "┐"));
     cv.put(t0 + 1, 0, V + cols.map((c) => fit(c.h, c.w, c.a === "r" ? "r" : "l")).join(V) + V, true);
     cv.put(t0 + 2, 0, line(ws, "├", "┼", "┤"));
@@ -264,9 +264,9 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
         cv.put(bottom + 10, 0, ascii(company.bank_account_no), true);
       }
     } else if (key === "purchase_orders") {
-      cv.put(bottom + 8, 0, "Cantumkan No. PO pada surat jalan & invoice. Sertakan CoA bahan baku.");
-      if (doc.remarks) cv.put(bottom + 9, 0, "Ket.: " + ascii(doc.remarks).slice(0, 66));
-      signs(cv, bottom + 11, ["Supplier", signer]);
+      cv.put(bottom + 7, 0, "Cantumkan No. PO pada SJ & invoice. Sertakan CoA bahan baku.");
+      if (doc.remarks) cv.put(bottom + 8, 0, "Ket.: " + ascii(doc.remarks).slice(0, 88));
+      signs(cv, bottom + 9, ["Supplier", signer]);
     } else if (isPay) {
       const words = wrap(terbilangAscii(Number(doc.paid_amount || 0)), 60);
       cv.put(bottom + 3, 0, "Terbilang :", true);
@@ -289,7 +289,7 @@ function signs(cv: Canvas, r: number, labels: string[]) {
   labels.forEach((l, i) => {
     const x = gap + i * (w + gap);
     cv.center(r, x, w, l, true);
-    cv.put(r + 6, x, "(" + " ".repeat(w - 2) + ")");
+    cv.put(r + 5, x, "(" + " ".repeat(w - 2) + ")");
   });
 }
 
@@ -333,7 +333,15 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
   const { nlq = true, dark = false, topMm = 0, roman = false } = opts;
   const out: number[] = [];
   const cmd = (...b: number[]) => out.push(...b);
-  cmd(ESC, 0x40);                 // ESC @  reset
+  cmd(ESC, 0x40);                 // ESC @  reset (kembali ke setelan default panel printer)
+  // Setelan default printer bisa saja "condensed" (huruf rapat): matikan semua secara eksplisit.
+  cmd(ESC, 0x21, 0x01);           // ESC ! 1  master select: 12 cpi, tanpa condensed/lebar ganda/tebal
+  cmd(0x12);                      // DC2      batalkan condensed (SI)
+  cmd(ESC, 0x57, 0);              // ESC W 0  lebar ganda mati
+  cmd(ESC, 0x77, 0);              // ESC w 0  tinggi ganda mati
+  cmd(ESC, 0x54);                 // ESC T     batalkan superscript/subscript
+  cmd(ESC, 0x2d, 0);              // ESC - 0  garis bawah mati
+  cmd(ESC, 0x6c, 0);              // ESC l 0  margin kiri = 0
   cmd(ESC, 0x78, nlq ? 1 : 0);    // ESC x  NLQ / Draft
   cmd(ESC, 0x6b, roman ? 0 : 1);  // ESC k  huruf NLQ: 0 Roman, 1 Sans Serif
   cmd(ESC, 0x74, 1);              // ESC t 1 tabel karakter grafis (PC437)
@@ -366,6 +374,24 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
   });
   cmd(ESC, 0x40);
   return Uint8Array.from(out);
+}
+
+/** Lembar uji posisi: bingkai penuh 96 x 44, penggaris kolom & nomor baris. */
+export function buildTestPage(): Canvas[] {
+  const cv = new Canvas();
+  cv.put(0, 0, "┌" + H.repeat(COLS - 2) + "┐");
+  cv.put(LINES - 1, 0, "└" + H.repeat(COLS - 2) + "┘");
+  for (let r = 1; r < LINES - 1; r++) { cv.put(r, 0, V); cv.put(r, COLS - 1, V); }
+  let ruler = "";
+  for (let c = 1; c < COLS - 1; c++) ruler += c % 10 === 0 ? String((c / 10) % 10) : c % 5 === 0 ? "+" : ".";
+  cv.put(1, 1, ruler);
+  for (let r = 2; r < LINES - 1; r++) cv.put(r, 2, String(r + 1).padStart(2, "0"));
+  cv.center(10, 0, COLS, "LEMBAR UJI POSISI - SJA ERP", true);
+  cv.center(12, 0, COLS, "96 kolom x 44 baris  |  12 cpi  |  spasi 1/8 inci", false);
+  cv.center(14, 0, COLS, "Bingkai harus utuh di dalam kertas: lebar 20,3 cm, tinggi 14,0 cm.", false);
+  cv.center(15, 0, COLS, "Ukur jarak garis atas ke sobekan kertas, dan garis kiri ke tepi kertas.", false);
+  cv.center(17, 0, COLS, "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 Rp.,-:/()", true);
+  return [cv];
 }
 
 /** Teks polos (untuk pratinjau/salin) */
