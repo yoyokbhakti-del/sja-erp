@@ -216,8 +216,8 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     // ---------- kop ----------
     cv.right(0, W, title, true);
     if (big) {
-      // nama perusahaan huruf lebar (tanpa GROUP), alamat & telepon huruf kecil
-      cv.span(0, 0, head.replace(/\s*\bGROUP\b/, "").trim(), "wide");
+      // nama perusahaan huruf tebal biasa (tanpa GROUP), alamat & telepon huruf kecil
+      cv.put(0, 0, head.replace(/\s*\bGROUP\b/, "").trim(), true);
       const small = wrap([company.address, company.city].filter(Boolean).join(", "), 88).slice(0, 2);
       if (company.phone) small.push(`Telp. ${ascii(company.phone)}`);
       small.forEach((l, i) => cv.span(1 + i, 0, l, "small"));
