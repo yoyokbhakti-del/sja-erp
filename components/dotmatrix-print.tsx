@@ -179,11 +179,14 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
                 {segments(line, cv.bold[r], 25.4 / cv.cpi)}
                 {(cv.spans[r] ?? []).map((sp, k) => {
                   const cw = spanCharMm(cv.cpi, sp.style);
-                  const fs = sp.style === "big" ? 2 * FS[cv.cpi] : 2.8;
+                  // huruf lebar dicetak printer dengan meregang mendatar: tiru dengan scaleX(2)
+                  const sx = sp.style === "small" ? 1 : 2, sy = sp.style === "big" ? 2 : 1;
+                  const fs = sp.style === "small" ? 2.8 : sp.style === "wide" ? FS[12] : FS[cv.cpi];
                   return (
                     <span key={k} className={`sp sp-${sp.style}`} style={{
                       left: `${sp.col * (25.4 / cv.cpi)}mm`, fontSize: `${fs}mm`,
-                      letterSpacing: `${(cw - 0.6 * fs).toFixed(3)}mm`,
+                      letterSpacing: `${(cw / sx - 0.6 * fs).toFixed(3)}mm`,
+                      transform: `scale(${sx}, ${sy})`, transformOrigin: "left top",
                     }}>{sp.text}</span>
                   );
                 })}
@@ -253,8 +256,9 @@ const CSS = `
 .dm-paper pre div { height: 3.175mm; line-height: 3.175mm; white-space: pre; }
 .dm-paper pre .tx { display: inline-block; vertical-align: top; height: 3.175mm; }
 .dm-paper pre .sp { position: absolute; top: 0; white-space: pre; }
-.dm-paper pre .sp-big { font-weight: 700; line-height: 6.35mm; }
+.dm-paper pre .sp-big { font-weight: 700; line-height: 3.175mm; }
 .dm-paper pre .sp-small { line-height: 3.175mm; }
+.dm-paper pre .sp-wide { font-weight: 700; line-height: 3.175mm; }
 .dm-paper pre .bx { display: inline-block; height: 3.175mm; vertical-align: top; }
 .dm-paper pre b { font-weight: 700; }
 .dm-paper pre { margin: 0 auto; width: 203.2mm; font-family: "Courier New", Courier, monospace; line-height: 3.175mm; white-space: pre; color: #111;

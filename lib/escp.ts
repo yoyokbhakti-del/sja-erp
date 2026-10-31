@@ -14,12 +14,12 @@ export const LINES = 44;
 const ROWS_PER_PAGE = 8;
 
 // ------------------------------- kanvas -------------------------------
-/** big = lebar ganda + tinggi ganda + tebal (memakai 2 baris); small = condensed (rapat). */
-export type SpanStyle = "big" | "small";
+/** big = lebar ganda + tinggi ganda + tebal (2 baris); wide = lebar ganda 12 cpi + tebal (1 baris); small = condensed. */
+export type SpanStyle = "big" | "wide" | "small";
 export type Span = { col: number; text: string; style: SpanStyle };
 /** lebar satu huruf (mm) untuk gaya span pada cpi kanvas */
 export const spanCharMm = (cpi: number, st: SpanStyle) =>
-  st === "big" ? (2 * 25.4) / cpi : 25.4 / (cpi === 10 ? 17.14 : 20);
+  st === "big" ? (2 * 25.4) / cpi : st === "wide" ? (2 * 25.4) / 12 : 25.4 / (cpi === 10 ? 17.14 : 20);
 class Canvas {
   /** w = jumlah kolom: 96 pada 12 cpi, 80 pada 10 cpi (huruf lebih besar). Lebar cetak sama 8 inci. */
   constructor(public w = COLS, public cpi: 10 | 12 = 12) {
@@ -216,11 +216,11 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     // ---------- kop ----------
     cv.right(0, W, title, true);
     if (big) {
-      // nama perusahaan besar (2 baris), alamat & telepon huruf kecil
-      cv.span(0, 0, head, "big");
+      // nama perusahaan huruf lebar (tanpa GROUP), alamat & telepon huruf kecil
+      cv.span(0, 0, head.replace(/\s*\bGROUP\b/, "").trim(), "wide");
       const small = wrap([company.address, company.city].filter(Boolean).join(", "), 88).slice(0, 2);
       if (company.phone) small.push(`Telp. ${ascii(company.phone)}`);
-      small.forEach((l, i) => cv.span(2 + i, 0, l, "small"));
+      small.forEach((l, i) => cv.span(1 + i, 0, l, "small"));
     } else {
       cv.put(0, 0, head, true);
       addrLines.forEach((l, i) => cv.put(1 + i, 0, l, true));
@@ -406,9 +406,11 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
           const pos = Math.round(s.col * unit);
           cmd(ESC, 0x24, pos & 0xff, pos >> 8);     // ESC $ posisi mendatar absolut
           if (s.style === "big") cmd(ESC, 0x57, 1, ESC, 0x77, 1, ESC, 0x45);  // lebar & tinggi ganda, tebal
+          else if (s.style === "wide") cmd(ESC, 0x4d, ESC, 0x57, 1, ESC, 0x45); // 12 cpi lebar ganda (6 cpi), tebal
           else cmd(0x0f);                             // SI condensed
           for (const ch of s.text) cmd(ch.charCodeAt(0) < 128 ? ch.charCodeAt(0) : 0x3f);
           if (s.style === "big") cmd(ESC, 0x57, 0, ESC, 0x77, 0, ESC, 0x46);
+          else if (s.style === "wide") cmd(ESC, 0x57, 0, ESC, 0x46, ESC, cv.cpi === 10 ? 0x50 : 0x4d);
           else cmd(0x12);                             // DC2 batal condensed
         }
       }
@@ -443,7 +445,7 @@ export function toText(pages: Canvas[]) {
   return pages.map((cv) => cv.ch.map((l, r) => {
     const line = [...l];
     for (const sp of cv.spans[r] ?? []) {
-      const t = sp.style === "big" ? sp.text.split("").join(" ") : sp.text;
+      const t = sp.style === "small" ? sp.text : sp.text.split("").join(" ");
       for (let i = 0; i < t.length; i++) line[sp.col + i] = t[i];
     }
     return line.join("").replace(/\s+$/, "");
