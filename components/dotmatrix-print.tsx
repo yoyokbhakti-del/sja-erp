@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Download, Printer, RefreshCw, X, FileText } from "lucide-react";
-import { buildPages, buildTestPage, toEscP, COLS, LINES, type EscOpts } from "@/lib/escp";
+import { buildPages, buildTestPage, toEscP, LINES, type EscOpts } from "@/lib/escp";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -166,7 +166,7 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
         </div>
         {status && <div className={`dm-status dm-${status.kind}`}>{status.text}</div>}
         <div className="dm-hint">
-          Kertas ½ continuous form <b>9,5 × 5,5 inci</b> · {COLS} kolom × {LINES} baris (12 cpi, 1/8&Prime;) · {pages.length} lembar.
+          Kertas ½ continuous form <b>9,5 × 5,5 inci</b> · {pages[0].w} kolom × {LINES} baris ({pages[0].cpi} cpi, 1/8&Prime;) · {pages.length} lembar.
           Sebelum mencetak, posisikan tepi atas lembar pertama tepat di garis awal cetak printer (tombol <i>Load/Eject</i>). Pergeseran kiri–kanan diatur dari posisi traktor kiri.
         </div>
       </div>
@@ -174,13 +174,16 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
       <div className="dm-pages">
         {pages.map((cv, i) => (
           <div key={i} className="dm-paper">
-            <pre>{cv.ch.map((line, r) => <div key={r}>{segments(line, cv.bold[r])}</div>)}</pre>
+            <pre style={{ fontSize: `${FS[cv.cpi]}mm`, letterSpacing: `${(25.4 / cv.cpi - 0.6 * FS[cv.cpi]).toFixed(3)}mm` }}>{cv.ch.map((line, r) => <div key={r}>{segments(line, cv.bold[r], 25.4 / cv.cpi)}</div>)}</pre>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
+// Tinggi huruf pratinjau (tinggi huruf printer sama; 10 cpi hanya lebih lebar)
+const FS: Record<number, number> = { 10: 3.75, 12: 3.53 };
 
 // Garis kotak digambar dengan CSS agar pratinjau tersambung rapat seperti hasil printer
 const ARMS: Record<string, string> = { // u=atas d=bawah l=kiri r=kanan
@@ -193,13 +196,13 @@ const ARM_BG: Record<string, string> = {
   u: "linear-gradient(#111,#111) center top / 1.4px 52% no-repeat",
   d: "linear-gradient(#111,#111) center bottom / 1.4px 52% no-repeat",
 };
-function segments(line: string[], bold: boolean[]) {
+function segments(line: string[], bold: boolean[], cw: number) {
   const out: ReactNode[] = [];
   let i = 0;
   while (i < line.length) {
     const arms = ARMS[line[i]];
     if (arms) {
-      out.push(<span key={i} className="bx" style={{ background: [...arms].map((a) => ARM_BG[a]).join(",") }} />);
+      out.push(<span key={i} className="bx" style={{ width: `${cw}mm`, background: [...arms].map((a) => ARM_BG[a]).join(",") }} />);
       i++;
       continue;
     }
@@ -207,7 +210,7 @@ function segments(line: string[], bold: boolean[]) {
     let j = i;
     while (j < line.length && bold[j] === b && !ARMS[line[j]]) j++;
     const t = line.slice(i, j).join("");
-    const st = { width: `${(j - i) * 2.1167}mm` };
+    const st = { width: `${(j - i) * cw}mm` };
     out.push(b ? <b key={i} className="tx" style={st}>{t}</b> : <span key={i} className="tx" style={st}>{t}</span>);
     i = j;
   }
@@ -235,8 +238,8 @@ const CSS = `
   background-size: 12.7mm 12.7mm; background-position: -3.2mm 0, calc(100% + 3.2mm) 0; background-repeat: repeat-y; }
 .dm-paper pre div { height: 3.175mm; line-height: 3.175mm; white-space: pre; }
 .dm-paper pre .tx { display: inline-block; vertical-align: top; height: 3.175mm; }
-.dm-paper pre .bx { display: inline-block; width: 2.1167mm; height: 3.175mm; vertical-align: top; }
+.dm-paper pre .bx { display: inline-block; height: 3.175mm; vertical-align: top; }
 .dm-paper pre b { font-weight: 700; }
-.dm-paper pre { margin: 0 auto; width: 203.2mm; font-family: "Courier New", Courier, monospace; font-size: 3.53mm; line-height: 3.175mm; letter-spacing: 0; white-space: pre; color: #111;
+.dm-paper pre { margin: 0 auto; width: 203.2mm; font-family: "Courier New", Courier, monospace; line-height: 3.175mm; white-space: pre; color: #111;
   /* 12 cpi: tiap karakter 2,117 mm; Courier lebar 0,6 em -> font-size 3,53 mm */ }
 `;

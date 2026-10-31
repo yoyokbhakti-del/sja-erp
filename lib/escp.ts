@@ -15,13 +15,18 @@ const ROWS_PER_PAGE = 8;
 
 // ------------------------------- kanvas -------------------------------
 class Canvas {
-  ch: string[][] = Array.from({ length: LINES }, () => Array(COLS).fill(" "));
-  bold: boolean[][] = Array.from({ length: LINES }, () => Array(COLS).fill(false));
+  /** w = jumlah kolom: 96 pada 12 cpi, 80 pada 10 cpi (huruf lebih besar). Lebar cetak sama 8 inci. */
+  constructor(public w = COLS, public cpi: 10 | 12 = 12) {
+    this.ch = Array.from({ length: LINES }, () => Array(w).fill(" "));
+    this.bold = Array.from({ length: LINES }, () => Array(w).fill(false));
+  }
+  ch: string[][];
+  bold: boolean[][];
   put(r: number, c: number, text: string, b = false) {
     if (r < 0 || r >= LINES) return;
     for (let i = 0; i < text.length; i++) {
       const x = c + i;
-      if (x < 0 || x >= COLS) continue;
+      if (x < 0 || x >= this.w) continue;
       this.ch[r][x] = text[i];
       this.bold[r][x] = b;
     }
@@ -79,7 +84,7 @@ function underBox(cv: Canvas, r: number, ws: number[], i: number, label: string,
   // ubah garis bawah tabel jadi sambungan ke kotak
   cv.put(r, x, "┼"); cv.put(r, x + w + 1, "┼");
   if (x === 0) cv.put(r, x, "├");
-  if (x + w + 1 === COLS - 1) cv.put(r, x + w + 1, "┤");
+  if (x + w + 1 === cv.w - 1) cv.put(r, x + w + 1, "┤");
   cv.put(r + 1, x, V); cv.put(r + 1, x + 1, fit(value, w, "r"), true); cv.put(r + 1, x + w + 1, V);
   cv.right(r + 1, x - 1, label, true);
   cv.put(r + 2, x, "└" + H.repeat(w) + "┘");
@@ -88,7 +93,7 @@ function underBox(cv: Canvas, r: number, ws: number[], i: number, label: string,
 /** Kotak bertingkat yang menggantung langsung di garis bawah tabel, selebar kolom i0..kolom terakhir. */
 function hangBox(cv: Canvas, tb: number, ws: number[], i0: number, items: [string, string, boolean][]) {
   const x = colStart(ws, i0) - 1;          // garis kiri kotak
-  const xr = COLS - 1;                     // garis kanan = tepi kanan tabel
+  const xr = cv.w - 1;                     // garis kanan = tepi kanan tabel
   const w = xr - x - 1;
   cv.put(tb, x, x === 0 ? "├" : "┼");
   cv.put(tb, xr, "┤");
@@ -104,6 +109,11 @@ function hangBox(cv: Canvas, tb: number, ws: number[], i0: number, items: [strin
 // ------------------------------- dokumen -------------------------------
 export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Canvas[] {
   const isPay = key === "payment_entries";
+  // Surat Jalan memakai huruf lebih besar: 10 cpi -> 80 kolom
+  const big = key === "delivery_notes";
+  const W = big ? 80 : COLS;
+  const rightX = W - 34;                        // awal kolom data kanan
+  const leftW = rightX - 14;                    // lebar nilai data kiri
   const priced = key === "sales_invoices" || key === "purchase_orders";
   const head = ascii(company.print_name || company.name || "").toUpperCase();
   const signer = head.replace(/\bGROUP\b/, "").replace(/^(CV|PT)\.?\s*/, "").trim();
@@ -136,8 +146,8 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     { h: "Jumlah", w: 13, a: "r", v: (r) => n0(r.amount) },
   ] : key === "delivery_notes" ? [
     No,
-    { h: "Nama Barang", w: 44, v: (r) => r.item?.name },
-    { h: "No. Batch", w: 29, v: (r) => r.batch_allocation || r.batch_no },
+    { h: "Nama Barang", w: 34, v: (r) => r.item?.name },
+    { h: "No. Batch", w: 23, v: (r) => r.batch_allocation || r.batch_no },
     qty, sat,
   ] : [
     No,
@@ -149,7 +159,7 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
   ];
   const ws = cols.map((c) => c.w);
   const tableWidth = 1 + ws.reduce((s, w) => s + w + 1, 0);
-  if (tableWidth !== COLS) throw new Error(`Lebar tabel ${key} = ${tableWidth}, harus ${COLS}`);
+  if (tableWidth !== W) throw new Error(`Lebar tabel ${key} = ${tableWidth}, harus ${W}`);
 
   const p = (doc.party ?? doc.cust ?? doc.supp) as Row | undefined;
   const termDays = doc.due_date && doc.posting_date
@@ -184,38 +194,38 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
   for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) chunks.push(rows.slice(i, i + ROWS_PER_PAGE));
   if (!chunks.length) chunks.push([]);
 
-  const addrLines = wrap([company.address, company.city].filter(Boolean).join(", "), 62).slice(0, 2);
+  const addrLines = wrap([company.address, company.city].filter(Boolean).join(", "), big ? 56 : 62).slice(0, 2);
   const totalQty = rows.reduce((s, r) => s + Number(r.qty || 0), 0);
   const subTotal = rows.reduce((s, r) => s + gross(r), 0);
 
   return chunks.map((pageRows, pi) => {
-    const cv = new Canvas();
+    const cv = new Canvas(W, big ? 10 : 12);
     const last = pi === chunks.length - 1;
 
     // ---------- kop ----------
     cv.put(0, 0, head, true);
-    cv.right(0, COLS, title, true);
+    cv.right(0, W, title, true);
     addrLines.forEach((l, i) => cv.put(1 + i, 0, l, true));
     if (company.phone) cv.put(1 + addrLines.length, 0, ascii(company.phone), true);
-    if (doc.docstatus === 0) cv.right(2, COLS, "*** DRAFT - BELUM SAH ***", true);
-    if (doc.docstatus === 2) cv.right(2, COLS, "*** DIBATALKAN ***", true);
+    if (doc.docstatus === 0) cv.right(3, W, "*** DRAFT - BELUM SAH ***", true);
+    if (doc.docstatus === 2) cv.right(3, W, "*** DIBATALKAN ***", true);
 
     // ---------- data kiri ----------
     let r = 5;
     for (const [k, v, b] of leftKV) {
       cv.put(r, 0, fit(k, 11) + ": ");
-      const vl = wrap(v, 45);
+      const vl = wrap(v, leftW);
       cv.put(r, 13, vl[0] ?? "", !!b);
       r++;
       if (k === partyLabel && !isPay && p) {
-        for (const a of wrap([p.address, p.city].filter(Boolean).join(", "), 45).slice(0, 2)) cv.put(r++, 13, a);
+        for (const a of wrap([p.address, p.city].filter(Boolean).join(", "), leftW).slice(0, big ? 3 : 2)) cv.put(r++, 13, a);
         if (p.npwp) cv.put(r++, 13, `NPWP : ${ascii(p.npwp)}`);
       }
     }
     // ---------- data kanan ----------
     let rr = 5;
     for (const [k, v] of [...rightKV, ["Lembar", `${pi + 1} / ${chunks.length}`] as [string, string]]) {
-      cv.put(rr++, 62, fit(k, 11) + ": " + fit(v, 21));
+      cv.put(rr++, rightX, fit(k, 11) + ": " + fit(v, 21));
     }
 
     // ---------- tabel ----------
@@ -231,7 +241,7 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     cv.put(tb, 0, line(ws, "└", "┴", "┘"));
 
     if (!last) {
-      cv.right(tb + 2, COLS, `Bersambung ke lembar ${pi + 2} ...`);
+      cv.right(tb + 2, W, `Bersambung ke lembar ${pi + 2} ...`);
       return cv;
     }
 
@@ -276,7 +286,7 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
       const note = key === "delivery_notes"
         ? "Barang telah diterima dalam keadaan baik dan jumlah yang benar."
         : "Bahan baku/kemas berstatus karantina sampai dinyatakan lulus QC.";
-      wrap(note, 54).forEach((w, i) => cv.put(bottom + i, 0, w));
+      wrap(note, big ? 46 : 54).forEach((w, i) => cv.put(bottom + i, 0, w));
       if (doc.remarks) cv.put(bottom + 2, 0, "Ket.: " + ascii(doc.remarks).slice(0, 48));
       signs(cv, bottom + 4, key === "delivery_notes" ? ["Penerima", "Sopir", signer] : ["Pengirim", "Penerima Gudang", "QC"]);
     }
@@ -285,7 +295,7 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
 }
 
 function signs(cv: Canvas, r: number, labels: string[]) {
-  const w = 24, gap = Math.floor((COLS - labels.length * w) / (labels.length + 1));
+  const w = 24, gap = Math.floor((cv.w - labels.length * w) / (labels.length + 1));
   labels.forEach((l, i) => {
     const x = gap + i * (w + gap);
     cv.center(r, x, w, l, true);
@@ -353,12 +363,13 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
   cmd(ESC, dark ? 0x47 : 0x48);   // ESC G / ESC H  double-strike on/off
   const shift = Math.max(0, Math.min(60, Math.round((topMm / 25.4) * 216)));
   pages.forEach((cv) => {
+    cmd(ESC, cv.cpi === 10 ? 0x50 : 0x4d); // ESC P 10 cpi (80 kolom) / ESC M 12 cpi (96 kolom)
     if (shift) cmd(ESC, 0x4a, shift);  // ESC J n  maju n/216 inci
     let last = LINES - 1;
     while (last > 0 && cv.ch[last].every((c) => c === " ")) last--;
     for (let r = 0; r <= last; r++) {
       // buang spasi di akhir baris supaya lebih cepat
-      let end = COLS;
+      let end = cv.w;
       while (end > 0 && cv.ch[r][end - 1] === " ") end--;
       let bold = false;
       for (let c = 0; c < end; c++) {
