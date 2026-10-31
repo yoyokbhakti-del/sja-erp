@@ -1,17 +1,17 @@
 // =====================================================================
 // Cetak mode teks untuk printer dot-matrix (Epson LX-310, ESC/P).
-// Kertas continuous form 9,5 x 11 inci.
+// Kertas ½ continuous form 9,5 x 5,5 inci.
 //   - 12 cpi (Elite)  -> 96 kolom pada lebar cetak 8 inci
-//   - 1/8 inci/baris  -> 88 baris per lembar 11 inci (garis kotak menyambung)
+//   - 1/8 inci/baris  -> 44 baris per lembar 5,5 inci (garis kotak menyambung)
 //   - tabel karakter PC437 untuk garis kotak
-// Satu "lembar" = kanvas 96 x 88 karakter. Huruf tebal disimpan per sel.
+// Satu "lembar" = kanvas 96 x 44 karakter. Huruf tebal disimpan per sel.
 // =====================================================================
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export const COLS = 96;
-export const LINES = 88;
-const ROWS_PER_PAGE = 42;
+export const LINES = 44;
+const ROWS_PER_PAGE = 8;
 
 // ------------------------------- kanvas -------------------------------
 class Canvas {
@@ -266,7 +266,7 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     } else if (key === "purchase_orders") {
       cv.put(bottom + 7, 0, "Cantumkan No. PO pada SJ & invoice. Sertakan CoA bahan baku.");
       if (doc.remarks) cv.put(bottom + 8, 0, "Ket.: " + ascii(doc.remarks).slice(0, 88));
-      signs(cv, bottom + 10, ["Supplier", signer]);
+      signs(cv, bottom + 9, ["Supplier", signer]);
     } else if (isPay) {
       const words = wrap(terbilangAscii(Number(doc.paid_amount || 0)), 60);
       cv.put(bottom + 3, 0, "Terbilang :", true);
@@ -347,8 +347,8 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
   cmd(ESC, 0x74, 1);              // ESC t 1 tabel karakter grafis (PC437)
   cmd(ESC, 0x52, 0);              // ESC R 0 karakter internasional USA
   cmd(ESC, 0x4d);                 // ESC M  12 cpi (Elite) -> 96 kolom
-  cmd(ESC, 0x30);                 // ESC 0  spasi baris 1/8 inci -> 88 baris per 11 inci
-  cmd(ESC, 0x43, LINES);          // ESC C n panjang halaman = 88 baris (11 inci); posisi saat ini = awal halaman
+  cmd(ESC, 0x30);                 // ESC 0  spasi baris 1/8 inci -> 44 baris
+  cmd(ESC, 0x43, LINES);          // ESC C n panjang halaman = 44 baris (5,5 inci); posisi saat ini = awal halaman
   cmd(ESC, 0x4f);                 // ESC O  tanpa lompat perforasi
   cmd(ESC, dark ? 0x47 : 0x48);   // ESC G / ESC H  double-strike on/off
   const shift = Math.max(0, Math.min(60, Math.round((topMm / 25.4) * 216)));
@@ -376,7 +376,7 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
   return Uint8Array.from(out);
 }
 
-/** Lembar uji posisi: bingkai penuh 96 x 88, penggaris kolom & nomor baris. */
+/** Lembar uji posisi: bingkai penuh 96 x 44, penggaris kolom & nomor baris. */
 export function buildTestPage(): Canvas[] {
   const cv = new Canvas();
   cv.put(0, 0, "┌" + H.repeat(COLS - 2) + "┐");
@@ -387,8 +387,8 @@ export function buildTestPage(): Canvas[] {
   cv.put(1, 1, ruler);
   for (let r = 2; r < LINES - 1; r++) cv.put(r, 2, String(r + 1).padStart(2, "0"));
   cv.center(10, 0, COLS, "LEMBAR UJI POSISI - SJA ERP", true);
-  cv.center(12, 0, COLS, "96 kolom x 88 baris  |  12 cpi  |  spasi 1/8 inci", false);
-  cv.center(14, 0, COLS, "Bingkai harus utuh di dalam kertas: lebar 20,3 cm, tinggi 27,9 cm.", false);
+  cv.center(12, 0, COLS, "96 kolom x 44 baris  |  12 cpi  |  spasi 1/8 inci", false);
+  cv.center(14, 0, COLS, "Bingkai harus utuh di dalam kertas: lebar 20,3 cm, tinggi 14,0 cm.", false);
   cv.center(15, 0, COLS, "Ukur jarak garis atas ke sobekan kertas, dan garis kiri ke tepi kertas.", false);
   cv.center(17, 0, COLS, "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 Rp.,-:/()", true);
   return [cv];
