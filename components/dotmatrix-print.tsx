@@ -166,7 +166,7 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
         </div>
         {status && <div className={`dm-status dm-${status.kind}`}>{status.text}</div>}
         <div className="dm-hint">
-          Kertas ½ continuous form <b>9,5 × 5,5 inci</b> · {COLS} kolom × {LINES} baris (12 cpi, 1/8&Prime;) · {pages.length} lembar.
+          Kertas continuous form <b>9,5 × 11 inci</b> · {COLS} kolom × {LINES} baris (12 cpi, 1/8&Prime;) · {pages.length} lembar.
           Sebelum mencetak, posisikan tepi atas lembar pertama tepat di garis awal cetak printer (tombol <i>Load/Eject</i>). Pergeseran kiri–kanan diatur dari posisi traktor kiri.
         </div>
       </div>
@@ -230,7 +230,7 @@ const CSS = `
 .dm-info { background: #f4f4f5; } .dm-ok { background: #ecfdf5; color: #065f46; } .dm-err { background: #fef2f2; color: #991b1b; }
 .dm-hint { font-size: 12px; color: #52525b; }
 .dm-pages { display: grid; gap: 18px; justify-content: center; padding: 20px 8px; overflow-x: auto; }
-.dm-paper { background: #fff; width: 241.3mm; height: 139.7mm; box-shadow: 0 1px 4px rgba(0,0,0,.25); padding: 0 6.35mm; box-sizing: border-box; overflow: hidden;
+.dm-paper { background: #fff; width: 241.3mm; height: 279.4mm; box-shadow: 0 1px 4px rgba(0,0,0,.25); padding: 0 6.35mm; box-sizing: border-box; overflow: hidden;
   background-image: radial-gradient(circle, #d4d4d8 1.6mm, transparent 1.7mm), radial-gradient(circle, #d4d4d8 1.6mm, transparent 1.7mm);
   background-size: 12.7mm 12.7mm; background-position: -3.2mm 0, calc(100% + 3.2mm) 0; background-repeat: repeat-y; }
 .dm-paper pre div { height: 3.175mm; line-height: 3.175mm; white-space: pre; }

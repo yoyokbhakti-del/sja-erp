@@ -1,6 +1,6 @@
 "use client";
 // =====================================================================
-// Format cetak ½ continuous form (9,5 x 5,5 inci) mengikuti contoh
+// Format cetak continuous form (9,5 x 11 inci) mengikuti contoh
 // invoice SEKAR JAYA ABADI GROUP: logo + kop, data kiri/kanan, tabel
 // bergaris penuh dengan baris tetap, total, terbilang, rekening, TTD.
 // Dipakai untuk: Invoice, Surat Jalan, Bukti Kas/Bank, BPB, PO.
@@ -12,8 +12,8 @@ import { tanggal, terbilang } from "@/lib/format";
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export const FORM_DOCS = new Set(["sales_invoices", "delivery_notes", "payment_entries", "purchase_receipts", "purchase_orders"]);
-export const FORM_PAPER = "½ continuous form 9,5 × 5,5 inci (241,3 × 139,7 mm)";
-const ROWS_PER_PAGE = 8;
+export const FORM_PAPER = "continuous form 9,5 × 11 inci (241,3 × 279,4 mm)";
+const ROWS_PER_PAGE = 30;
 
 const idn = new Intl.NumberFormat("id-ID", { maximumFractionDigits: 2 });
 const idn2 = new Intl.NumberFormat("id-ID", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -256,14 +256,14 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
 }
 
 const CSS = `
-@page { size: 241.3mm 139.7mm; margin: 4mm 12mm; }
+@page { size: 241.3mm 279.4mm; margin: 4mm 12mm; }
 .cf-root { background: #e5e5e5; min-height: 100vh; padding: 16px 0 40px; color: #000;
   font-family: Tahoma, Verdana, sans-serif; font-size: 8.4pt; line-height: 1.25; }
 .cf-toolbar { width: 241.3mm; margin: 0 auto 10px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-family: system-ui, sans-serif; }
 .cf-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #000; background: #fff; color: #000; padding: 6px 12px; border-radius: 4px; font-size: 13px; cursor: pointer; }
 .cf-primary { background: #000; color: #fff; }
 .cf-hint { font-size: 11.5px; color: #444; }
-.cf-sheet { position: relative; width: 241.3mm; height: 139.7mm; margin: 0 auto 12px; background: #fff; padding: 4mm 12mm;
+.cf-sheet { position: relative; width: 241.3mm; height: 279.4mm; margin: 0 auto 12px; background: #fff; padding: 4mm 12mm;
   box-shadow: 0 1px 8px rgba(0,0,0,.15); display: flex; flex-direction: column; overflow: hidden; break-after: page; }
 .cf-sheet:last-child { break-after: auto; }
 .cf-wm { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-18deg); font-size: 72pt; font-weight: 700;
