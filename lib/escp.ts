@@ -14,6 +14,12 @@ export const LINES = 44;
 const ROWS_PER_PAGE = 8;
 
 // ------------------------------- kanvas -------------------------------
+/** big = lebar ganda + tinggi ganda + tebal (memakai 2 baris); small = condensed (rapat). */
+export type SpanStyle = "big" | "small";
+export type Span = { col: number; text: string; style: SpanStyle };
+/** lebar satu huruf (mm) untuk gaya span pada cpi kanvas */
+export const spanCharMm = (cpi: number, st: SpanStyle) =>
+  st === "big" ? (2 * 25.4) / cpi : 25.4 / (cpi === 10 ? 17.14 : 20);
 class Canvas {
   /** w = jumlah kolom: 96 pada 12 cpi, 80 pada 10 cpi (huruf lebih besar). Lebar cetak sama 8 inci. */
   constructor(public w = COLS, public cpi: 10 | 12 = 12) {
@@ -22,6 +28,11 @@ class Canvas {
   }
   ch: string[][];
   bold: boolean[][];
+  /** Tulisan khusus per baris (huruf besar / kecil) yang dicetak di atas grid dengan posisi absolut. */
+  spans: Record<number, Span[]> = {};
+  span(r: number, col: number, text: string, style: SpanStyle) {
+    (this.spans[r] ??= []).push({ col, text: ascii(text), style });
+  }
   put(r: number, c: number, text: string, b = false) {
     if (r < 0 || r >= LINES) return;
     for (let i = 0; i < text.length; i++) {
@@ -203,10 +214,18 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     const last = pi === chunks.length - 1;
 
     // ---------- kop ----------
-    cv.put(0, 0, head, true);
     cv.right(0, W, title, true);
-    addrLines.forEach((l, i) => cv.put(1 + i, 0, l, true));
-    if (company.phone) cv.put(1 + addrLines.length, 0, ascii(company.phone), true);
+    if (big) {
+      // nama perusahaan besar (2 baris), alamat & telepon huruf kecil
+      cv.span(0, 0, head, "big");
+      const small = wrap([company.address, company.city].filter(Boolean).join(", "), 88).slice(0, 2);
+      if (company.phone) small.push(`Telp. ${ascii(company.phone)}`);
+      small.forEach((l, i) => cv.span(2 + i, 0, l, "small"));
+    } else {
+      cv.put(0, 0, head, true);
+      addrLines.forEach((l, i) => cv.put(1 + i, 0, l, true));
+      if (company.phone) cv.put(1 + addrLines.length, 0, ascii(company.phone), true);
+    }
     if (doc.docstatus === 0) cv.right(3, W, "*** DRAFT - BELUM SAH ***", true);
     if (doc.docstatus === 2) cv.right(3, W, "*** DIBATALKAN ***", true);
 
@@ -366,7 +385,8 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
     cmd(ESC, cv.cpi === 10 ? 0x50 : 0x4d); // ESC P 10 cpi (80 kolom) / ESC M 12 cpi (96 kolom)
     if (shift) cmd(ESC, 0x4a, shift);  // ESC J n  maju n/216 inci
     let last = LINES - 1;
-    while (last > 0 && cv.ch[last].every((c) => c === " ")) last--;
+    while (last > 0 && cv.ch[last].every((c) => c === " ") && !cv.spans[last]) last--;
+    const unit = 60 / cv.cpi;       // 1 kolom = n/60 inci (untuk ESC $)
     for (let r = 0; r <= last; r++) {
       // buang spasi di akhir baris supaya lebih cepat
       let end = cv.w;
@@ -379,6 +399,19 @@ export function toEscP(pages: Canvas[], opts: EscOpts = {}): Uint8Array {
         cmd(CP437[ch] ?? (ch.charCodeAt(0) < 128 ? ch.charCodeAt(0) : 0x3f));
       }
       if (bold) cmd(ESC, 0x46);
+      const sp = cv.spans[r];
+      if (sp?.length) {
+        if (end > 0) cmd(0x0d);                     // kembali ke kiri, cetak span di baris yang sama
+        for (const s of sp) {
+          const pos = Math.round(s.col * unit);
+          cmd(ESC, 0x24, pos & 0xff, pos >> 8);     // ESC $ posisi mendatar absolut
+          if (s.style === "big") cmd(ESC, 0x57, 1, ESC, 0x77, 1, ESC, 0x45);  // lebar & tinggi ganda, tebal
+          else cmd(0x0f);                             // SI condensed
+          for (const ch of s.text) cmd(ch.charCodeAt(0) < 128 ? ch.charCodeAt(0) : 0x3f);
+          if (s.style === "big") cmd(ESC, 0x57, 0, ESC, 0x77, 0, ESC, 0x46);
+          else cmd(0x12);                             // DC2 batal condensed
+        }
+      }
       cmd(0x0d, 0x0a);
     }
     cmd(0x0c);                    // form feed -> awal lembar berikutnya
@@ -407,7 +440,14 @@ export function buildTestPage(): Canvas[] {
 
 /** Teks polos (untuk pratinjau/salin) */
 export function toText(pages: Canvas[]) {
-  return pages.map((cv) => cv.ch.map((l) => l.join("").replace(/\s+$/, "")).join("\n")).join("\n\f\n");
+  return pages.map((cv) => cv.ch.map((l, r) => {
+    const line = [...l];
+    for (const sp of cv.spans[r] ?? []) {
+      const t = sp.style === "big" ? sp.text.split("").join(" ") : sp.text;
+      for (let i = 0; i < t.length; i++) line[sp.col + i] = t[i];
+    }
+    return line.join("").replace(/\s+$/, "");
+  }).join("\n")).join("\n\f\n");
 }
 
 export type { Canvas };

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Download, Printer, RefreshCw, X, FileText } from "lucide-react";
-import { buildPages, buildTestPage, toEscP, LINES, type EscOpts } from "@/lib/escp";
+import { buildPages, buildTestPage, toEscP, spanCharMm, LINES, type EscOpts } from "@/lib/escp";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -174,7 +174,21 @@ export function DotMatrixPrint({ dtKey, doc, rows, company, onGraphic }: {
       <div className="dm-pages">
         {pages.map((cv, i) => (
           <div key={i} className="dm-paper">
-            <pre style={{ fontSize: `${FS[cv.cpi]}mm`, letterSpacing: `${(25.4 / cv.cpi - 0.6 * FS[cv.cpi]).toFixed(3)}mm` }}>{cv.ch.map((line, r) => <div key={r}>{segments(line, cv.bold[r], 25.4 / cv.cpi)}</div>)}</pre>
+            <pre style={{ fontSize: `${FS[cv.cpi]}mm`, letterSpacing: `${(25.4 / cv.cpi - 0.6 * FS[cv.cpi]).toFixed(3)}mm` }}>{cv.ch.map((line, r) => (
+              <div key={r} style={{ position: "relative" }}>
+                {segments(line, cv.bold[r], 25.4 / cv.cpi)}
+                {(cv.spans[r] ?? []).map((sp, k) => {
+                  const cw = spanCharMm(cv.cpi, sp.style);
+                  const fs = sp.style === "big" ? 2 * FS[cv.cpi] : 2.8;
+                  return (
+                    <span key={k} className={`sp sp-${sp.style}`} style={{
+                      left: `${sp.col * (25.4 / cv.cpi)}mm`, fontSize: `${fs}mm`,
+                      letterSpacing: `${(cw - 0.6 * fs).toFixed(3)}mm`,
+                    }}>{sp.text}</span>
+                  );
+                })}
+              </div>
+            ))}</pre>
           </div>
         ))}
       </div>
@@ -238,6 +252,9 @@ const CSS = `
   background-size: 12.7mm 12.7mm; background-position: -3.2mm 0, calc(100% + 3.2mm) 0; background-repeat: repeat-y; }
 .dm-paper pre div { height: 3.175mm; line-height: 3.175mm; white-space: pre; }
 .dm-paper pre .tx { display: inline-block; vertical-align: top; height: 3.175mm; }
+.dm-paper pre .sp { position: absolute; top: 0; white-space: pre; }
+.dm-paper pre .sp-big { font-weight: 700; line-height: 6.35mm; }
+.dm-paper pre .sp-small { line-height: 3.175mm; }
 .dm-paper pre .bx { display: inline-block; height: 3.175mm; vertical-align: top; }
 .dm-paper pre b { font-weight: 700; }
 .dm-paper pre { margin: 0 auto; width: 203.2mm; font-family: "Courier New", Courier, monospace; line-height: 3.175mm; white-space: pre; color: #111;
