@@ -191,7 +191,28 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
               {isPay && last && (
                 <tfoot><tr><td colSpan={cols.length - 1} className="r b">Total Rp</td><td className="r b">{n2(doc.paid_amount)}</td></tr></tfoot>
               )}
-              {!isPay && last && (
+              {priced && last && (
+                <tfoot>
+                  {/* Total Kuantitas + kotak Sub Total/Diskon/PPN/Total menempel di bawah kolom Jumlah */}
+                  {([
+                    ["Sub Total", n2(subTotal)],
+                    ["Diskon", n2(discTotal)],
+                    [`PPN ${n0(doc.ppn_percent)}%`, n2(doc.tax_amount)],
+                    ["Total", n2(doc.grand_total)],
+                  ] as [string, string][]).map(([k, v], i) => (
+                    <tr key={k} className="cf-qtyrow">
+                      {i === 0 ? <>
+                        <td colSpan={qIdx} className="r b cf-nob">Total Kuantitas</td>
+                        <td className="r b">{n0(totalQty)}</td>
+                        <td colSpan={cols.length - qIdx - 5} className="cf-nob" />
+                      </> : <td colSpan={cols.length - 4} className="cf-nob" />}
+                      <td colSpan={3} className="r b cf-nob cf-totlbl">{k}<span>Rp</span></td>
+                      <td className={i === 3 ? "r b" : "r"}>{v}</td>
+                    </tr>
+                  ))}
+                </tfoot>
+              )}
+              {!isPay && !priced && last && (
                 <tfoot>
                   <tr className="cf-qtyrow">
                     <td colSpan={qIdx} className="r b cf-nob">Total Kuantitas</td>
@@ -234,18 +255,6 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
                   ))}
                 </div>
 
-                {priced && (
-                  <table className="cf-tot">
-                    <tbody>
-                      {priced ? <>
-                        <tr><td>Sub Total</td><td>Rp</td><td className="cf-box r">{n2(subTotal)}</td></tr>
-                        <tr><td>Diskon</td><td>Rp</td><td className="cf-box r">{n2(discTotal)}</td></tr>
-                        <tr><td>PPN {n0(doc.ppn_percent)}%</td><td>Rp</td><td className="cf-box r">{n2(doc.tax_amount)}</td></tr>
-                        <tr><td>Total</td><td>Rp</td><td className="cf-box r b">{n2(doc.grand_total)}</td></tr>
-                      </> : null}
-                    </tbody>
-                  </table>
-                )}
               </div>
             )}
           </div>
@@ -297,6 +306,7 @@ const CSS = `
 .cf-signs { display: flex; gap: 6mm; align-items: flex-start; }
 .cf-sign { text-align: center; width: 34mm; }
 .cf-sign-name { margin-top: 13mm; display: flex; justify-content: space-between; white-space: nowrap; }
+.cf-items td.cf-totlbl span { display: inline-block; width: 7mm; text-align: right; font-weight: 400; }
 .cf-tot { border-collapse: collapse; align-self: start; }
 .cf-tot td { padding: .25mm 0; }
 .cf-tot td:first-child { font-weight: 700; text-align: right; padding-right: 2mm; white-space: nowrap; }
