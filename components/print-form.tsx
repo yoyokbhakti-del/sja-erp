@@ -36,6 +36,7 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
   const signer = head.replace(/\bgroup\b/i, "").replace(/^(cv|pt)\.?\s*/i, "").trim().toUpperCase();
   const isPay = key === "payment_entries";
   const priced = key === "sales_invoices" || key === "purchase_orders";
+  const isInv = key === "sales_invoices";
   const title =
     key === "sales_invoices" ? "INVOICE" :
     key === "delivery_notes" ? "SURAT JALAN" :
@@ -58,7 +59,9 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
     { h: "Nilai Invoice", w: "32mm", cls: "r", v: (r) => n2((r.si ?? r.pi)?.grand_total) },
     { h: "Dibayar", w: "32mm", cls: "r", v: (r) => n2(r.allocated_amount) },
   ] : priced ? [
-    noCol, nameCol, qtyCol, uomCol,
+    noCol, nameCol,
+    ...(isInv ? [{ h: "Merk", w: "24mm", v: (r: Row) => r.item?.brand } as Col] : []),
+    qtyCol, uomCol,
     { h: "Harga", w: "24mm", cls: "r", v: (r) => n0(r.rate) },
     { h: <>Disk<br />(%)</>, w: "10mm", cls: "c", v: (r) => (Number(r.discount_percent) ? n0(r.discount_percent) : "") },
     { h: <>Diskon<br />(Rp)</>, w: "18mm", cls: "r", v: (r) => (Number(r.discount_percent) ? n0(gross(r) - Number(r.amount)) : "") },
@@ -145,6 +148,8 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
             {/* KOP */}
             <div className="cf-top">
               <div className="cf-brand">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {isInv && <img src="/logo-sja.png" alt="" className="cf-logo" />}
                 <div>
                   <div className="cf-co">{head.toUpperCase()}</div>
                   {addr && <div className="cf-co-addr">{addr}</div>}
@@ -191,7 +196,48 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
               {isPay && last && (
                 <tfoot><tr><td colSpan={cols.length - 1} className="r b">Total Rp</td><td className="r b">{n2(doc.paid_amount)}</td></tr></tfoot>
               )}
-              {priced && last && (
+              {isInv && last && (
+                <tfoot>
+                  {/* Seperti contoh: Total Kuantitas | nama penanda tangan | kotak total di bawah kolom Jumlah */}
+                  <tr className="cf-qtyrow">
+                    <td colSpan={qIdx} className="r b cf-nob">Total Kuantitas</td>
+                    <td className="r b">{n0(totalQty)}</td>
+                    <td colSpan={2} rowSpan={2} className="c b cf-nob cf-signer">{head.toUpperCase()}</td>
+                    <td colSpan={2} className="r b cf-nob cf-totlbl">Sub Total<span>Rp</span></td>
+                    <td className="r">{n2(subTotal)}</td>
+                  </tr>
+                  <tr className="cf-qtyrow">
+                    <td colSpan={qIdx + 1} rowSpan={3} className="cf-nob cf-words-cell">
+                      <span className="b">Terbilang :</span> <i>{grand ? terbilang(grand) : ""}</i>
+                    </td>
+                    <td colSpan={2} className="r b cf-nob cf-totlbl">Diskon<span>Rp</span></td>
+                    <td className="r">{n2(discTotal)}</td>
+                  </tr>
+                  <tr className="cf-qtyrow">
+                    <td colSpan={2} className="cf-nob" />
+                    <td colSpan={2} className="r b cf-nob cf-totlbl">PPN {n0(doc.ppn_percent)}%<span>Rp</span></td>
+                    <td className="r">{n2(doc.tax_amount)}</td>
+                  </tr>
+                  <tr className="cf-qtyrow">
+                    <td colSpan={2} className="cf-nob" />
+                    <td colSpan={2} className="r b cf-nob cf-totlbl">Total<span>Rp</span></td>
+                    <td className="r b">{n2(doc.grand_total)}</td>
+                  </tr>
+                  <tr className="cf-qtyrow cf-bankrow">
+                    <td colSpan={qIdx + 1} className="cf-nob">
+                      {bank && <>
+                        <div>Pembayaran dapat ditransfer ke rekening :</div>
+                        <div className="b">{head.toUpperCase()}</div>
+                        <div className="b">{[company.bank_name, company.bank_account_name].filter(Boolean).join(". ")}</div>
+                        <div className="b">{company.bank_account_no}</div>
+                      </>}
+                    </td>
+                    <td colSpan={2} className="cf-nob cf-paren"><span>(</span><span>)</span></td>
+                    <td colSpan={3} className="cf-nob" />
+                  </tr>
+                </tfoot>
+              )}
+              {priced && !isInv && last && (
                 <tfoot>
                   {/* Total Kuantitas + kotak Sub Total/Diskon/PPN/Total menempel di bawah kolom Jumlah */}
                   {([
@@ -226,6 +272,8 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
             {/* BAWAH */}
             {!last ? (
               <div className="cf-cont">Bersambung ke lembar {pi + 2} …</div>
+            ) : isInv ? (
+              doc.remarks ? <div className="cf-note" style={{ marginTop: "1mm" }}>Ket.: {doc.remarks}</div> : null
             ) : (
               <div className="cf-bottom">
                 <div className="cf-left">
@@ -306,6 +354,12 @@ const CSS = `
 .cf-signs { display: flex; gap: 6mm; align-items: flex-start; }
 .cf-sign { text-align: center; width: 34mm; }
 .cf-sign-name { margin-top: 13mm; display: flex; justify-content: space-between; white-space: nowrap; }
+.cf-logo { width: 13mm; height: auto; margin-top: .5mm; }
+.cf-items td.cf-signer { vertical-align: top; padding-top: .6mm; white-space: normal; line-height: 1.15; }
+.cf-items td.cf-words-cell { vertical-align: top; white-space: normal; padding: .6mm 0 0; line-height: 1.2; }
+.cf-items tr.cf-bankrow td { height: auto; vertical-align: bottom; white-space: normal; padding: 1.5mm 0 0; line-height: 1.25; }
+.cf-items td.cf-paren { display: table-cell; }
+.cf-items td.cf-paren span:first-child { float: left; padding-left: 2mm; } .cf-items td.cf-paren span:last-child { float: right; padding-right: 2mm; }
 .cf-items td.cf-totlbl span { display: inline-block; width: 7mm; text-align: right; font-weight: 400; }
 .cf-tot { border-collapse: collapse; align-self: start; }
 .cf-tot td { padding: .25mm 0; }
