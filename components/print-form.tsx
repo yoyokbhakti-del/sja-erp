@@ -148,8 +148,6 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
             {/* KOP */}
             <div className="cf-top">
               <div className="cf-brand">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                {isInv && <img src="/logo-sja.png" alt="" className="cf-logo" />}
                 <div>
                   <div className="cf-co">{head.toUpperCase()}</div>
                   {addr && <div className="cf-co-addr">{addr}</div>}
