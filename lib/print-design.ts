@@ -2,7 +2,7 @@
 // Desain Cetakan: model konfigurasi, katalog field/kolom, nilai bawaan
 // dan data contoh untuk pratinjau. Disimpan di tabel print_designs.config.
 // =====================================================================
-import { number, rupiah, tanggal } from "@/lib/format";
+import { number, rupiah, tanggal, terbilang, waktu } from "@/lib/format";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -32,17 +32,38 @@ export const PAPERS: Record<string, { label: string; w: number; h: number }> = {
 // ----------------------------- model ----------------------------------
 export type ColCfg = { key: string; label: string; width: number | null };
 
+export type ElType = "text" | "kv" | "totals" | "rect" | "line" | "image";
+export type Band = "head" | "foot";
+// Satu elemen di kanvas. Satuan posisi/ukuran: mm, relatif terhadap bagian (kop/bawah).
+export type El = {
+  id: string; type: ElType; band: Band; name?: string;
+  x: number; y: number; w: number; h: number;
+  hidden?: boolean; showIf?: string;
+  // teks
+  text?: string; size?: number; bold?: boolean; italic?: boolean; underline?: boolean; upper?: boolean;
+  align?: "l" | "c" | "r"; valign?: "t" | "m" | "b"; family?: "" | "sans" | "serif" | "mono"; color?: string; spacing?: number;
+  // kotak / garis
+  stroke?: number; dash?: boolean; fill?: string; radius?: number; dir?: "h" | "v";
+  // gambar
+  src?: string;
+  // daftar info (label : isi) & blok total
+  rows?: { label: string; v: string }[]; labelW?: number; keys?: string[];
+};
+
+export type TableCfg = {
+  columns: ColCfg[]; border: "full" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
+  headBg: boolean; size: number; pad: number; headUpper: boolean;
+};
+
 export type DesignConfig = {
+  v: 2;
   paper: { preset: string; w: number; h: number; mt: number; mr: number; mb: number; ml: number };
   font: { family: "sans" | "serif" | "mono"; size: number };
-  header: {
-    showCompany: boolean; showAddress: boolean; showPhone: boolean; showNpwp: boolean;
-    align: "split" | "center"; title: string; showDocNo: boolean; rule: boolean;
-  };
-  info: { showParty: boolean; partyLabel: string; showContact: boolean; showRemarks: boolean; fields: string[] };
-  table: { columns: ColCfg[]; border: "full" | "horizontal" | "none"; minRows: number; itemSubline: boolean };
-  totals: { show: string[]; words: boolean };
-  footer: { note: string; signs: string[]; signHeight: number; showSignDate: boolean; showPrinted: boolean };
+  watermark: boolean;
+  head: { h: number };
+  foot: { h: number; pin: boolean };
+  table: TableCfg;
+  els: El[];
 };
 
 // ------------------------ katalog informasi dokumen --------------------
@@ -104,7 +125,7 @@ export const TOTAL_DEFS: { key: string; label: (d: Row) => string; get: (d: Row,
 ];
 
 // ------------------------ nilai bawaan per dokumen --------------------
-type Base = { party?: string; priced: boolean; batch: boolean; words?: boolean; note?: string; signs: string[]; remarksTitle?: string };
+type Base = { party?: string; priced: boolean; batch: boolean; words?: boolean; note?: string; signs: string[] };
 const BASE: Record<string, Base> = {
   purchase_orders:   { party: "Kepada Yth. Supplier", priced: true, batch: false, words: true,
     note: "Mohon cantumkan nomor PO ini pada surat jalan dan invoice. Barang yang tidak sesuai spesifikasi atau tanpa CoA dapat ditolak.",
@@ -140,7 +161,123 @@ const col = (key: string): ColCfg => {
   return { key, label: d.label, width: d.width };
 };
 
-export function defaultDesign(docKey: string): DesignConfig {
+// ------------------------ variabel yang bisa disisipkan ke teks -------
+// Tulis {nama.variabel} di teks mana pun; diganti dengan data dokumen saat dicetak.
+export type VarDef = { key: string; label: string; group: string };
+export const VAR_CATALOG: VarDef[] = [
+  { group: "Perusahaan", key: "company.name", label: "Nama perusahaan" },
+  { group: "Perusahaan", key: "company.address", label: "Alamat" },
+  { group: "Perusahaan", key: "company.city", label: "Kota" },
+  { group: "Perusahaan", key: "company.address_line", label: "Alamat + kota" },
+  { group: "Perusahaan", key: "company.phone", label: "Telepon" },
+  { group: "Perusahaan", key: "company.npwp", label: "NPWP perusahaan" },
+  { group: "Perusahaan", key: "company.contact_line", label: "Telp. + NPWP (satu baris)" },
+  { group: "Dokumen", key: "doc.name", label: "Nomor dokumen" },
+  { group: "Dokumen", key: "doc.title", label: "Judul dokumen (otomatis)" },
+  { group: "Dokumen", key: "doc.status", label: "Status (Draft / Dibatalkan)" },
+  { group: "Dokumen", key: "doc.remarks", label: "Keterangan dokumen" },
+  { group: "Customer / Supplier", key: "party.name", label: "Nama" },
+  { group: "Customer / Supplier", key: "party.contact", label: "Kontak (u.p.)" },
+  { group: "Customer / Supplier", key: "party.address", label: "Alamat" },
+  { group: "Customer / Supplier", key: "party.city", label: "Kota" },
+  { group: "Customer / Supplier", key: "party.address_line", label: "Alamat + kota" },
+  { group: "Customer / Supplier", key: "party.phone", label: "Telepon" },
+  { group: "Customer / Supplier", key: "party.npwp", label: "NPWP" },
+  { group: "Customer / Supplier", key: "party.contact_line", label: "Telp. + NPWP (satu baris)" },
+  ...META_FIELDS.map((m) => ({ group: "Info dokumen", key: `m.${m.key}`, label: m.label })),
+  { group: "Total", key: "total.total_qty", label: "Total Qty" },
+  { group: "Total", key: "total.subtotal", label: "Subtotal" },
+  { group: "Total", key: "total.ppn", label: "Nilai PPN" },
+  { group: "Total", key: "total.ppn_label", label: "Label PPN (mis. PPN 11%)" },
+  { group: "Total", key: "total.total", label: "Total / Grand total" },
+  { group: "Total", key: "total.outstanding", label: "Sisa tagihan" },
+  { group: "Total", key: "terbilang", label: "Terbilang" },
+  { group: "Cetak", key: "maker", label: "Nama pembuat dokumen" },
+  { group: "Cetak", key: "printed_by", label: "Dicetak oleh (email)" },
+  { group: "Cetak", key: "printed_at", label: "Waktu cetak" },
+];
+export const varLabel = (key: string) => VAR_CATALOG.find((v) => v.key === key)?.label ?? key;
+
+export function buildVars(args: {
+  dtKey: string; title: string; doc: Row; rows: Row[]; company: Row; maker: string; printedBy: string;
+}): Record<string, string> {
+  const { dtKey, title, doc, rows, company, maker, printedBy } = args;
+  const s = (v: unknown) => (v === null || v === undefined ? "" : String(v));
+  const p = (doc.party ?? {}) as Row;
+  const join = (sep: string, ...a: unknown[]) => a.filter(Boolean).map(String).join(sep);
+  const v: Record<string, string> = {
+    "company.name": s(company.print_name || company.name),
+    "company.address": s(company.address), "company.city": s(company.city),
+    "company.address_line": join(", ", company.address, company.city),
+    "company.phone": s(company.phone), "company.npwp": s(company.npwp),
+    "company.contact_line": join("  ·  ", company.phone && `Telp. ${company.phone}`, company.npwp && `NPWP ${company.npwp}`),
+    "doc.name": s(doc.name), "doc.title": title,
+    "doc.status": doc.docstatus === 0 ? "Draft – belum sah" : doc.docstatus === 2 ? "Dibatalkan" : "",
+    "doc.remarks": s(doc.remarks),
+    "party.name": s(p.name), "party.contact": s(p.contact_person), "party.address": s(p.address), "party.city": s(p.city),
+    "party.address_line": join(", ", p.address, p.city), "party.phone": s(p.phone), "party.npwp": s(p.npwp),
+    "party.contact_line": join("  ·  ", p.phone && `Telp. ${p.phone}`, p.npwp && `NPWP ${p.npwp}`),
+    maker: s(maker), printed_by: s(printedBy), printed_at: waktu(new Date().toISOString()),
+    terbilang: doc.grand_total !== undefined && doc.grand_total !== null ? terbilang(Number(doc.grand_total || 0)) : "",
+    logo: "/logo-sja.png",
+  };
+  for (const m of META_FIELDS) v[`m.${m.key}`] = s(m.get(doc));
+  for (const t of TOTAL_DEFS) v[`total.${t.key}`] = !t.only || t.only(dtKey, doc) ? t.get(doc, rows) : "";
+  v["total.ppn_label"] = `PPN ${number(doc.ppn_percent)}%`;
+  return v;
+}
+
+// Ganti {variabel} dengan nilainya. Baris yang seluruh variabelnya kosong dibuang
+// (mis. "u.p. {party.contact}" hilang bila tak ada kontak).
+export function resolveText(text: string, vars: Record<string, string>): string {
+  const re = /\{([a-z0-9_.]+)\}/g;
+  return text.split("\n").map((line) => {
+    let n = 0, filled = 0;
+    const out = line.replace(re, (m, k: string) => {
+      if (!(k in vars)) return m;
+      n++;
+      if (vars[k]) filled++;
+      return vars[k];
+    });
+    return { out, keep: n === 0 || filled > 0 };
+  }).filter((l) => l.keep).map((l) => l.out).join("\n");
+}
+
+// ------------------------ elemen baru ---------------------------------
+export const uid = () => Math.random().toString(36).slice(2, 9);
+
+export function newEl(type: ElType, band: Band, fs: number, W: number): El {
+  const base = { id: uid(), type, band, x: Math.min(10, W / 4), y: 3 };
+  switch (type) {
+    case "text": return { ...base, w: 60, h: 6, text: "Teks baru", size: fs, align: "l", valign: "t" };
+    case "kv": return { ...base, w: 80, h: 18, size: fs, labelW: 30, rows: [{ label: "Tanggal", v: "m.date" }, { label: "No. PO", v: "m.po_no" }] };
+    case "totals": return { ...base, w: 68, h: 20, size: fs, keys: ["subtotal", "ppn", "total"] };
+    case "rect": return { ...base, w: 60, h: 20, stroke: 0.25, fill: "", color: "#000000", radius: 0 };
+    case "line": return { ...base, w: 60, h: 1, stroke: 0.25, dir: "h", color: "#000000" };
+    case "image": return { ...base, w: 14, h: 14, src: "{logo}" };
+  }
+}
+
+// Kotak tanda tangan: judul + ruang kosong + garis + nama
+export function signGroup(band: Band, x: number, y: number, label: string, fs: number, spaceH = 18, w = 50): El[] {
+  return [
+    { id: uid(), type: "text", band, x, y, w, h: 5, text: label, size: fs, align: "c", valign: "t", name: `TTD ${label}` },
+    { id: uid(), type: "line", band, x, y: y + 5 + spaceH, w, h: 1, stroke: 0.25, dir: "h", color: "#000000", name: `Garis TTD ${label}` },
+    { id: uid(), type: "text", band, x, y: y + 6.5 + spaceH, w, h: 5, text: "Tgl. ____________", size: Math.max(fs - 1.5, 6), align: "c", valign: "t", name: `Tgl TTD ${label}` },
+  ];
+}
+
+// ------------------------ konfigurasi lama (v1) → tata letak bebas -----
+type LegacyCfg = {
+  paper: DesignConfig["paper"]; font: DesignConfig["font"];
+  header: { showCompany: boolean; showAddress: boolean; showPhone: boolean; showNpwp: boolean; align: "split" | "center"; title: string; showDocNo: boolean; rule: boolean };
+  info: { showParty: boolean; partyLabel: string; showContact: boolean; showRemarks: boolean; fields: string[] };
+  table: { columns: ColCfg[]; border: "full" | "horizontal" | "none"; minRows: number; itemSubline: boolean };
+  totals: { show: string[]; words: boolean };
+  footer: { note: string; signs: string[]; signHeight: number; showSignDate: boolean; showPrinted: boolean };
+};
+
+function legacyDefault(docKey: string): LegacyCfg {
   const b = BASE[docKey] ?? { priced: true, batch: false, signs: ["Dibuat oleh", "Disetujui"] };
   const isSte = docKey === "stock_entries";
   const columns: ColCfg[] = [
@@ -164,25 +301,188 @@ export function defaultDesign(docKey: string): DesignConfig {
   };
 }
 
-// Gabungkan konfigurasi tersimpan dengan bawaan agar desain lama tetap valid
+function fromLegacy(docKey: string, L: LegacyCfg): DesignConfig {
+  const hasParty = !!(BASE[docKey]?.party);
+  const W = L.paper.w - L.paper.ml - L.paper.mr;
+  const fs = L.font.size;
+  const els: El[] = [];
+  const t = (e: Partial<El> & { band: Band; x: number; y: number; w: number; h: number; text: string }) =>
+    els.push({ id: uid(), type: "text", size: fs, align: "l", valign: "t", ...e });
+  const center = L.header.align === "center";
+  const tw = 76;
+
+  // ---- kop
+  if (L.header.showCompany) {
+    const w = center ? W : W - tw - 4;
+    const al = center ? "c" : "l";
+    t({ band: "head", x: 0, y: 0, w, h: 6.5, text: "{company.name}", size: fs + 3.5, bold: true, upper: true, align: al, name: "Nama perusahaan" });
+    if (L.header.showAddress) t({ band: "head", x: 0, y: 6.8, w, h: 4, text: "{company.address_line}", size: Math.max(fs - 0.5, 6), align: al, name: "Alamat perusahaan" });
+    const contact = L.header.showPhone && L.header.showNpwp ? "{company.contact_line}"
+      : L.header.showPhone ? "Telp. {company.phone}" : L.header.showNpwp ? "NPWP {company.npwp}" : "";
+    if (contact) t({ band: "head", x: 0, y: 10.8, w, h: 4, text: contact, size: Math.max(fs - 0.5, 6), align: al, name: "Kontak perusahaan" });
+  }
+  const ty = center ? (L.header.showCompany ? 16 : 0) : 0;
+  const tx = center ? 0 : W - tw;
+  const tAl = center ? "c" : "r";
+  const tW = center ? W : tw;
+  t({ band: "head", x: tx, y: ty, w: tW, h: 7, text: L.header.title.trim() || "{doc.title}", size: fs + 4.5, bold: true, upper: true, spacing: 0.4, align: tAl, name: "Judul dokumen" });
+  let ty2 = ty + 7.5;
+  if (L.header.showDocNo) { t({ band: "head", x: tx, y: ty2, w: tW, h: 5, text: "{doc.name}", size: fs + 0.5, align: tAl, name: "Nomor dokumen" }); ty2 += 5.5; }
+  t({ band: "head", x: tx, y: ty2, w: tW, h: 4, text: "{doc.status}", size: Math.max(fs - 1.5, 6), bold: true, upper: true, align: tAl, showIf: "doc.status", name: "Status dokumen" });
+  const base = center ? Math.max(ty2 + 6, 24) : Math.max(ty2 + 5, L.header.showCompany ? 17 : 14);
+  let iy = base;
+  if (L.header.rule) {
+    els.push({ id: uid(), type: "line", band: "head", x: 0, y: base, w: W, h: 1, stroke: 0.7, dir: "h", color: "#000000", name: "Garis kop" });
+    els.push({ id: uid(), type: "line", band: "head", x: 0, y: base + 1.4, w: W, h: 1, stroke: 0.2, dir: "h", color: "#000000", name: "Garis kop tipis" });
+    iy = base + 5;
+  } else iy = base + 3;
+
+  // ---- info: customer/supplier + data dokumen
+  const colW = (W - 8) * 0.52;
+  let infoH = 0;
+  if (L.info.showParty) {
+    t({ band: "head", x: 0, y: iy, w: colW, h: 4, text: L.info.partyLabel, size: Math.max(fs - 1.5, 6), bold: true, upper: true, name: "Judul kotak" });
+    if (hasParty) {
+      t({ band: "head", x: 0, y: iy + 4, w: colW, h: 5, text: "{party.name}", size: fs + 1, bold: true, name: "Nama customer/supplier" });
+      const lines = [L.info.showContact ? "u.p. {party.contact}" : "", "{party.address}", "{party.city}", "{party.contact_line}"].filter(Boolean);
+      t({ band: "head", x: 0, y: iy + 9.2, w: colW, h: lines.length * 4.4, text: lines.join("\n"), name: "Alamat customer/supplier" });
+      infoH = 9.2 + 4 * 4.4;
+    } else {
+      t({ band: "head", x: 0, y: iy + 4, w: colW, h: 12, text: "{doc.remarks}", name: "Keterangan" });
+      infoH = 16;
+    }
+  }
+  const rows = L.info.fields.map((k) => META_FIELDS.find((m) => m.key === k)).filter((m): m is NonNullable<typeof m> => !!m)
+    .map((m) => ({ label: m.label, v: `m.${m.key}` }));
+  if (rows.length) {
+    const kx = L.info.showParty ? colW + 8 : 0;
+    const kh = rows.length * (fs * 0.4 + 0.9) + 1;
+    els.push({ id: uid(), type: "kv", band: "head", x: kx, y: iy, w: W - kx, h: kh, size: fs, labelW: 32, rows, name: "Data dokumen" });
+    infoH = Math.max(infoH, kh);
+  }
+  const headH = Math.ceil(iy + infoH + 2);
+
+  // ---- bagian bawah
+  let ly = 3;
+  if (L.totals.words) {
+    t({ band: "foot", x: 0, y: ly, w: W - 72, h: 4, text: "Terbilang", size: Math.max(fs - 1.5, 6), bold: true, upper: true, showIf: "terbilang", name: "Judul terbilang" });
+    t({ band: "foot", x: 0, y: ly + 4, w: W - 72, h: 11, text: "{terbilang}", italic: true, showIf: "terbilang", name: "Terbilang" });
+    ly += 16;
+  }
+  if (L.info.showRemarks && hasParty) {
+    t({ band: "foot", x: 0, y: ly, w: W - 72, h: 4, text: "Keterangan", size: Math.max(fs - 1.5, 6), bold: true, upper: true, showIf: "doc.remarks", name: "Judul keterangan" });
+    t({ band: "foot", x: 0, y: ly + 4, w: W - 72, h: 8, text: "{doc.remarks}", showIf: "doc.remarks", name: "Keterangan dokumen" });
+    ly += 12.5;
+  }
+  if (L.footer.note.trim()) {
+    const lines = Math.ceil(L.footer.note.length / Math.max(((W - 72) / (fs * 0.2)), 20));
+    const nh = Math.max(5, lines * (fs * 0.4));
+    t({ band: "foot", x: 0, y: ly, w: W - 72, h: nh, text: L.footer.note, size: Math.max(fs - 1, 6), name: "Catatan" });
+    ly += nh + 1;
+  }
+  let totH = 0;
+  if (L.totals.show.length) {
+    totH = L.totals.show.length * (fs * 0.4 + 1.9);
+    els.push({ id: uid(), type: "totals", band: "foot", x: W - 68, y: 3, w: 68, h: totH, size: fs, keys: L.totals.show, name: "Total" });
+  }
+  let fy = Math.max(ly, 3 + totH);
+  const signs = L.footer.signs.map((x) => x.trim()).filter(Boolean);
+  if (signs.length) {
+    fy += 6;
+    const sw = 52;
+    signs.forEach((s, i) => {
+      const x = signs.length === 1 ? W - sw : (i * (W - sw)) / (signs.length - 1);
+      const g = signGroup("foot", x, fy, s, fs, L.footer.signHeight, sw);
+      if (!L.footer.showSignDate) g.pop();
+      if (["Dibuat oleh", "Hormat kami"].includes(s)) {
+        g.push({ id: uid(), type: "text", band: "foot", x, y: fy + 6 + L.footer.signHeight, w: sw, h: 5, text: "{maker}", size: fs, align: "c", valign: "t", name: `Nama TTD ${s}` });
+      }
+      els.push(...g);
+    });
+    fy += 6.5 + L.footer.signHeight + (L.footer.showSignDate ? 6 : 1) + 5;
+  }
+  if (L.footer.showPrinted) {
+    fy += 3;
+    els.push({ id: uid(), type: "line", band: "foot", x: 0, y: fy - 0.5, w: W, h: 1, stroke: 0.15, dir: "h", color: "#000000", name: "Garis footer" });
+    t({ band: "foot", x: 0, y: fy + 1, w: W * 0.8, h: 4, text: "Dicetak dari SJA ERP · {printed_at} · {printed_by}", size: Math.max(fs - 2, 5.5), name: "Footer cetak" });
+    t({ band: "foot", x: W * 0.8, y: fy + 1, w: W * 0.2, h: 4, text: "{doc.name}", size: Math.max(fs - 2, 5.5), align: "r", name: "Footer nomor" });
+    fy += 6;
+  }
+
+  return {
+    v: 2, paper: L.paper, font: L.font, watermark: true,
+    head: { h: headH }, foot: { h: Math.ceil(fy + 1), pin: false },
+    table: { ...L.table, headBg: false, size: 0, pad: 1.5, headUpper: true },
+    els,
+  };
+}
+
+export function defaultDesign(docKey: string): DesignConfig {
+  return fromLegacy(docKey, legacyDefault(docKey));
+}
+
+// ------------------------ penggabungan & pembersihan ------------------
+const num = (v: unknown, d: number, min = -1000, max = 2000) => (typeof v === "number" && Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : d);
+const str = (v: unknown, d = "") => (typeof v === "string" ? v : d);
+
+function cleanEls(arr: unknown): El[] {
+  if (!Array.isArray(arr)) return [];
+  const types: ElType[] = ["text", "kv", "totals", "rect", "line", "image"];
+  return arr.flatMap((raw): El[] => {
+    const e = raw as Partial<El> | null;
+    if (!e || typeof e !== "object" || !types.includes(e.type as ElType)) return [];
+    const el: El = {
+      ...e, id: str(e.id) || uid(), type: e.type as ElType, band: e.band === "foot" ? "foot" : "head",
+      x: num(e.x, 0), y: num(e.y, 0), w: num(e.w, 20, 0.5, 1000), h: num(e.h, 5, 0.1, 1000),
+    };
+    if (el.rows && !Array.isArray(el.rows)) delete el.rows;
+    if (el.keys && !Array.isArray(el.keys)) delete el.keys;
+    if (el.type === "totals") el.keys = (el.keys ?? []).filter((k) => TOTAL_DEFS.some((t) => t.key === k));
+    return [el];
+  });
+}
+
+// Gabungkan konfigurasi tersimpan dengan bawaan agar desain lama tetap valid.
+// Desain format lama (v1, berbentuk formulir) otomatis diubah jadi tata letak bebas.
 export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
-  const d = defaultDesign(docKey);
-  const c = (raw && typeof raw === "object" ? raw : {}) as Partial<DesignConfig>;
+  const c = (raw && typeof raw === "object" ? raw : {}) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  if (c.v === 2 && Array.isArray(c.els)) {
+    const d = defaultDesign(docKey);
+    const cols = Array.isArray(c.table?.columns)
+      ? c.table.columns.filter((x: ColCfg) => x && colDef(x.key)).map((x: ColCfg) => ({
+          key: x.key, label: typeof x.label === "string" ? x.label : colDef(x.key)!.label,
+          width: typeof x.width === "number" && x.width > 0 ? x.width : null,
+        }))
+      : d.table.columns;
+    return {
+      v: 2,
+      paper: { ...d.paper, ...c.paper },
+      font: { ...d.font, ...c.font },
+      watermark: c.watermark !== false,
+      head: { h: num(c.head?.h, d.head.h, 5, 400) },
+      foot: { h: num(c.foot?.h, d.foot.h, 5, 400), pin: !!c.foot?.pin },
+      table: { ...d.table, ...c.table, columns: cols.length ? cols : d.table.columns },
+      els: cleanEls(c.els),
+    };
+  }
+  // format lama
+  const d = legacyDefault(docKey);
   const cols = Array.isArray(c.table?.columns)
-    ? c.table!.columns.filter((x) => x && colDef(x.key)).map((x) => ({
+    ? c.table.columns.filter((x: ColCfg) => x && colDef(x.key)).map((x: ColCfg) => ({
         key: x.key, label: typeof x.label === "string" ? x.label : colDef(x.key)!.label,
         width: typeof x.width === "number" && x.width > 0 ? x.width : null,
       }))
     : d.table.columns;
-  return {
+  const L: LegacyCfg = {
     paper: { ...d.paper, ...c.paper },
     font: { ...d.font, ...c.font },
     header: { ...d.header, ...c.header },
-    info: { ...d.info, ...c.info, fields: Array.isArray(c.info?.fields) ? c.info!.fields.filter((k) => META_FIELDS.some((m) => m.key === k)) : d.info.fields },
+    info: { ...d.info, ...c.info, fields: Array.isArray(c.info?.fields) ? c.info.fields.filter((k: string) => META_FIELDS.some((m) => m.key === k)) : d.info.fields },
     table: { ...d.table, ...c.table, columns: cols.length ? cols : d.table.columns },
-    totals: { ...d.totals, ...c.totals, show: Array.isArray(c.totals?.show) ? c.totals!.show.filter((k) => TOTAL_DEFS.some((t) => t.key === k)) : d.totals.show },
-    footer: { ...d.footer, ...c.footer, signs: Array.isArray(c.footer?.signs) ? c.footer!.signs : d.footer.signs },
+    totals: { ...d.totals, ...c.totals, show: Array.isArray(c.totals?.show) ? c.totals.show.filter((k: string) => TOTAL_DEFS.some((t) => t.key === k)) : d.totals.show },
+    footer: { ...d.footer, ...c.footer, signs: Array.isArray(c.footer?.signs) ? c.footer.signs : d.footer.signs },
   };
+  return fromLegacy(docKey, L);
 }
 
 // ------------------------ data contoh untuk pratinjau -----------------
