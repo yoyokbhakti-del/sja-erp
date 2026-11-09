@@ -584,6 +584,7 @@ export const MODULES: { name: DocType["module"]; reports?: { label: string; href
   ] },
   { name: "Pengaturan", reports: [
     { label: "Pengguna & Role", href: "/users", perm: "users" },
+    { label: "Desain Cetakan", href: "/print-designs", perm: "print_designs" },
     { label: "Audit Trail", href: "/audit-log", perm: "audit_log" },
   ] },
 ];

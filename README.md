@@ -14,6 +14,7 @@ Tanggal mulai pembukuan: **29 Oktober 2026** (bisa diubah di menu Perusahaan).
 | Penjualan | Customer (+ plafon kredit), Sales Order → Delivery Note (Surat Jalan) → Sales Invoice |
 | Akuntansi | Bagan Akun (COA standar Indonesia), jurnal otomatis dari setiap transaksi, Payment Entry (terima piutang / bayar hutang / transfer kas-bank, termasuk cicilan & uang muka), Journal Entry, saldo awal, kunci periode. Laporan: Buku Besar, Neraca Saldo, Laba Rugi, Neraca, Umur Piutang, Umur Hutang. Cetak bukti kas/bank (dengan terbilang) & bukti jurnal |
 | Lain-lain | Dashboard KPI, cetak dokumen (PO, Surat Jalan, Invoice, BPB), export CSV, timeline aktivitas per dokumen |
+| Desain Cetakan | Menu Pengaturan > Desain Cetakan: atur tata letak cetak grafis per dokumen (kertas & margin, kop, info dokumen, kolom tabel, total/terbilang, catatan, tanda tangan) dengan pratinjau langsung. Satu desain bisa dijadikan default; cetak dot-matrix teks tidak berubah |
 
 ### Aturan bisnis yang dijaga di database (bukan hanya di UI)
 - Siklus dokumen ala ERPNext: **Draft → Submit → Cancel**. Dokumen yang sudah submit tidak bisa diedit/dihapus; harus Cancel lalu *Amend*.

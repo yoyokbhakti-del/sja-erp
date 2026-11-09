@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { Printer, X } from "lucide-react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { bySlug, type DocType } from "@/lib/doctypes";
 import { number, rupiah, tanggal, terbilang, waktu } from "@/lib/format";
 import { FORM_DOCS, FormPrint } from "@/components/print-form";
 import { DotMatrixPrint } from "@/components/dotmatrix-print";
+import { DesignPrint } from "@/components/design-print";
+import { loadPrintData } from "@/lib/print-data";
+import { mergeDesign, type DesignConfig } from "@/lib/print-design";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -55,24 +58,6 @@ function pageCss(p: Paper) {
 @media print { .pf-sheet { width: auto; min-height: ${p.h - 2 * p.my - 2}mm; padding: 0; } }`;
 }
 
-function partyEmbed(dt: DocType) {
-  const parts: string[] = [];
-  const has = (n: string) => dt.fields.some((f) => f.name === n);
-  if (has("supplier_id")) parts.push("party:suppliers!supplier_id(code,name,address,city,npwp,phone,contact_person,payment_terms_days)");
-  if (has("customer_id")) parts.push("party:customers!customer_id(code,name,address,city,npwp,phone,contact_person,payment_terms_days)");
-  for (const [col, tbl] of [["purchase_order_id", "purchase_orders"], ["purchase_receipt_id", "purchase_receipts"],
-                            ["sales_order_id", "sales_orders"], ["delivery_note_id", "delivery_notes"]]) {
-    if (!has(col)) continue;
-    if (col === "sales_order_id") parts.push(`${col}__l:${tbl}!${col}(name,po_no)`);
-    else if (col === "delivery_note_id") parts.push(`${col}__l:${tbl}!${col}(name,sales_order_id__l:sales_orders!sales_order_id(name,po_no))`);
-    else parts.push(`${col}__l:${tbl}!${col}(name)`);
-  }
-  for (const col of ["set_warehouse_id", "from_warehouse_id", "to_warehouse_id"]) {
-    if (has(col)) parts.push(`${col}__l:warehouses!${col}(code,name)`);
-  }
-  return parts.length ? "*," + parts.join(",") : "*";
-}
-
 export default function PrintPage() {
   const { slug, id } = useParams<{ slug: string; id: string }>();
   const dt = bySlug[slug];
@@ -81,7 +66,11 @@ export default function PrintPage() {
   const [company, setCompany] = useState<Row | null>(null);
   const [maker, setMaker] = useState<string>("");
   const [printedBy, setPrintedBy] = useState<string>("");
-  const [graphic, setGraphic] = useState(false);
+  const search = useSearchParams();
+  const wanted = search.get("design");               // id desain | "bawaan" | null
+  const [graphic, setGraphic] = useState(!!wanted);   // desain dipilih eksplisit -> langsung cetak grafis
+  const [designs, setDesigns] = useState<{ id: string; name: string; is_default: boolean; config: unknown }[]>([]);
+  const [designId, setDesignId] = useState<string>(wanted ?? "");
 
   // Dokumen cetak selalu tampil terang
   useEffect(() => { document.documentElement.classList.remove("dark"); }, []);
@@ -90,39 +79,39 @@ export default function PrintPage() {
     if (!dt) return;
     const sb = supabaseBrowser();
     (async () => {
-      let head;
-      if (dt.key === "payment_entries") {
-        head = await sb.from(dt.key).select("*, cust:customers!customer_id(name,address,city,npwp), supp:suppliers!supplier_id(name,address,city,npwp), af:accounts!paid_from_account_id(code,name), at:accounts!paid_to_account_id(code,name)").eq("id", id).single();
-        const ch = await sb.from(dt.child!.table).select("*, si:sales_invoices!sales_invoice_id(name,posting_date,due_date,grand_total), pi:purchase_invoices!purchase_invoice_id(name,posting_date,due_date,grand_total,bill_no)").eq("parent_id", id).order("idx");
-        setRows((ch.data as Row[]) ?? []);
-      } else if (dt.key === "journal_entries") {
-        head = await sb.from(dt.key).select("*").eq("id", id).single();
-        const ch = await sb.from(dt.child!.table).select("*, acc:accounts!account_id(code,name), cust:customers!customer_id(name), supp:suppliers!supplier_id(name)").eq("parent_id", id).order("idx");
-        setRows((ch.data as Row[]) ?? []);
-      } else {
-        head = await sb.from(dt.key).select(partyEmbed(dt)).eq("id", id).single();
-        const whEmbed = dt.key === "stock_entries" ? ", sw:warehouses!s_warehouse_id(code), tw:warehouses!t_warehouse_id(code)" : "";
-        const ch = await sb.from(dt.child!.table).select(`*, item:items!item_id(code,name,brand,stock_uom,reg_number)${whEmbed}`).eq("parent_id", id).order("idx");
-        setRows((ch.data as Row[]) ?? []);
-      }
-      const d = head.data as Row | null;
-      setDoc(d);
-      if (d?.created_by) {
-        const p = await sb.from("profiles").select("full_name").eq("id", d.created_by).maybeSingle();
-        setMaker((p.data as Row | null)?.full_name ?? "");
-      }
-      const me = await sb.auth.getUser();
-      setPrintedBy(me.data.user?.email ?? "");
+      const r = await loadPrintData(sb, dt, id);
+      setDoc(r.doc);
+      setRows(r.rows);
+      setMaker(r.maker);
+      setPrintedBy(r.printedBy);
     })();
     sb.from("companies").select("*").order("created_at").limit(1).single().then(({ data }) => setCompany(data as Row));
-  }, [dt, id]);
+    // Desain cetakan (bila tabelnya belum ada / tak ada izin -> abaikan, pakai tata letak bawaan)
+    sb.from("print_designs").select("id,name,is_default,config").eq("doctype", dt.key).order("name")
+      .then(({ data }) => setDesigns((data as typeof designs) ?? []));
+  }, [dt, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // desain yang dipakai: pilihan eksplisit > default > bawaan
+  const activeDesign = designId === "bawaan" ? undefined
+    : designs.find((d) => d.id === designId) ?? (designId ? undefined : designs.find((d) => d.is_default));
+  const design: DesignConfig | null = activeDesign ? mergeDesign(dt?.key ?? "", activeDesign.config) : null;
+  const pickDesign = (v: string) => setDesignId(v);
 
   if (!dt) return <div style={{ padding: 40 }}>Dokumen tidak dikenal</div>;
   if (!doc || !company) return <div style={{ padding: 40, color: "#71717a", fontFamily: "system-ui" }}>Memuat dokumen…</div>;
 
   if (FORM_DOCS.has(dt.key)) {
     if (!graphic) return <DotMatrixPrint dtKey={dt.key} doc={doc} rows={rows} company={company} onGraphic={() => setGraphic(true)} />;
+    if (design && activeDesign) {
+      return <DesignPrint dt={dt} doc={doc} rows={rows} company={company} maker={maker} printedBy={printedBy}
+        design={design} designs={designs} currentId={activeDesign.id} onPick={pickDesign} />;
+    }
     return <FormPrint dt={dt} doc={doc} rows={rows} company={company} maker={maker} />;
+  }
+
+  if (design && activeDesign && dt.key !== "payment_entries" && dt.key !== "journal_entries") {
+    return <DesignPrint dt={dt} doc={doc} rows={rows} company={company} maker={maker} printedBy={printedBy}
+      design={design} designs={designs} currentId={activeDesign.id} onPick={pickDesign} />;
   }
 
   const title = typeof dt.printTitle === "function" ? dt.printTitle(doc) : (dt.printTitle ?? dt.label.toUpperCase());
@@ -137,6 +126,12 @@ export default function PrintPage() {
       <div className="pf-toolbar no-print">
         <button className="pf-btn pf-primary" onClick={() => window.print()}><Printer size={15} /> Cetak / Simpan PDF</button>
         <button className="pf-btn" onClick={() => window.close()}><X size={15} /> Tutup</button>
+        {designs.length > 0 && (
+          <select className="pf-btn" value="bawaan" onChange={(e) => pickDesign(e.target.value)} title="Pilih desain cetakan">
+            <option value="bawaan">Tata letak bawaan</option>
+            {designs.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        )}
         <span className="pf-hint">Kertas: <b>{paperFor(dt.key).name}</b>. Di jendela cetak pilih ukuran kertas yang sama, Margins: <i>Default</i>, Scale: <i>100</i>, dan matikan &ldquo;Headers and footers&rdquo;.</span>
       </div>
 

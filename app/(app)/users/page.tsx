@@ -11,6 +11,7 @@ const ACTIONS = ["can_read", "can_write", "can_submit", "can_cancel"] as const;
 const EXTRA = [
   { key: "stock_ledger", label: "Laporan Stok" }, { key: "gl_entries", label: "Laporan Keuangan (Buku Besar, Neraca, L/R)" },
   { key: "users", label: "Pengguna & Role" },
+  { key: "print_designs", label: "Desain Cetakan" },
   { key: "audit_log", label: "Audit Trail" },
 ];
 
