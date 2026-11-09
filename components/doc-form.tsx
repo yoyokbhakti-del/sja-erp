@@ -242,7 +242,7 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
   async function submit() {
     if (dirty && !(await save())) return;
     if (await rpc("submit_doc", { p_doctype: dt.key, p_id: id },
-      `Submit ${doc.name}? Setelah submit dokumen tidak bisa diubah${["stock_entries", "purchase_receipts", "delivery_notes"].includes(dt.key) ? " dan stok akan langsung bergerak" : ""}.`)) {
+      `Submit ${doc.name}? Setelah submit dokumen tidak bisa diubah${["stock_entries", "purchase_receipts", "delivery_notes", "stock_reconciliations", "sales_returns", "purchase_returns", "work_orders"].includes(dt.key) ? " dan stok akan langsung bergerak" : ""}.`)) {
       await load(); setMsg("Dokumen berhasil disubmit");
     }
   }
@@ -292,10 +292,10 @@ export function DocForm({ dt, id }: { dt: DocType; id: string }) {
           {dt.submittable && !isNew && <Badge status={doc.status as string} docstatus={docstatus} />}
           {dirty && <span className="rounded bg-amber-100 px-1.5 text-xs font-normal text-amber-800">Belum disimpan</span>}</span>}
         sub={<Link href={docUrl(dt.key)} className="hover:underline">{dt.label}</Link>}>
-        {!isNew && dt.submittable && (
+        {!isNew && dt.submittable && !(["stock_reconciliations", "boms", "work_orders"].includes(dt.key)) && (
           <Link href={`/print/${dt.slug}/${id}`} target="_blank"><Button variant="outline"><Printer size={14} /> Cetak</Button></Link>
         )}
-        {!isNew && ["stock_entries", "purchase_receipts", "delivery_notes"].includes(dt.key) && docstatus > 0 && (
+        {!isNew && ["stock_entries", "purchase_receipts", "delivery_notes", "stock_reconciliations", "sales_returns", "purchase_returns", "work_orders"].includes(dt.key) && docstatus > 0 && (
           <Link href={`/reports/stock-ledger?voucher=${id}`}><Button variant="outline"><BookOpen size={14} /> Ledger</Button></Link>
         )}
         {!isNew && docstatus > 0 && !["purchase_orders", "sales_orders"].includes(dt.key) && dt.submittable && (

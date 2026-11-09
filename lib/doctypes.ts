@@ -54,7 +54,7 @@ export interface DocType {
   key: string;               // nama tabel
   slug: string;              // url: /app/<slug>
   label: string;
-  module: "Stok" | "Pembelian" | "Penjualan" | "Akuntansi" | "Pengaturan";
+  module: "Stok" | "Produksi" | "Pembelian" | "Penjualan" | "Akuntansi" | "Pengaturan";
   isMaster?: boolean;
   submittable?: boolean;
   titleField: string;        // kolom judul (name/code)
@@ -337,7 +337,9 @@ const purchaseInvoices: DocType = {
     ],
   },
   makes: [{ label: "Pembayaran", rpc: "make_payment_from_purchase_invoice", arg: "p_pi", target: "payment_entries",
-            when: (d) => Number(d.outstanding_amount) > 0 }],
+            when: (d) => Number(d.outstanding_amount) > 0 },
+          { label: "Retur Pembelian", rpc: "make_purchase_return", arg: "p_pi", target: "purchase_returns",
+            when: (d) => !d.is_opening }],
 };
 
 const salesOrders: DocType = {
@@ -430,7 +432,156 @@ const salesInvoices: DocType = {
     ],
   },
   makes: [{ label: "Pembayaran", rpc: "make_payment_from_sales_invoice", arg: "p_si", target: "payment_entries",
-            when: (d) => Number(d.outstanding_amount) > 0 }],
+            when: (d) => Number(d.outstanding_amount) > 0 },
+          { label: "Retur Penjualan", rpc: "make_sales_return", arg: "p_si", target: "sales_returns",
+            when: (d) => !d.is_opening }],
+};
+
+// ------------------------- STOK OPNAME & RETUR ------------------------
+const stockReconciliations: DocType = {
+  key: "stock_reconciliations", slug: "stock-opname", label: "Stok Opname", module: "Stok", submittable: true,
+  titleField: "name", subtitleField: "warehouse_id", searchFields: ["name", "remarks"],
+  orderBy: { column: "created_at", ascending: false },
+  fields: [
+    ...docHeader(),
+    { name: "posting_date", label: "Tanggal Opname", type: "date", required: true, inList: true, default: today },
+    { name: "warehouse_id", label: "Gudang", type: "link", link: "warehouses", required: true, inList: true },
+    { name: "difference_amount", label: "Nilai Selisih", type: "currency", readOnly: true, inList: true },
+    { name: "difference_account_id", label: "Akun Selisih (kosong = Penyesuaian Persediaan)", type: "link", link: "accounts" },
+    { name: "remarks", label: "Keterangan", type: "text" },
+  ],
+  child: {
+    table: "stock_reconciliation_items", label: "Hasil Hitung Fisik",
+    fields: [
+      { name: "item_id", label: "Item", type: "link", link: "items", required: true, width: "min-w-56" },
+      { name: "batch_no", label: "No. Batch", type: "data", width: "w-32" },
+      { name: "expiry_date", label: "Exp. (batch baru)", type: "date", width: "w-36" },
+      { name: "counted_qty", label: "Qty Fisik", type: "float", required: true, width: "w-28" },
+      { name: "rate", label: "Harga (selisih lebih)", type: "currency", width: "w-36" },
+      { name: "system_qty", label: "Qty Sistem", type: "float", readOnly: true, width: "w-28" },
+      { name: "difference_qty", label: "Selisih", type: "float", readOnly: true, width: "w-24" },
+      { name: "difference_amount", label: "Nilai Selisih", type: "currency", readOnly: true, width: "w-32" },
+    ],
+  },
+  actions: [{ label: "Ambil Stok Sistem", rpc: "load_stock_reconciliation", arg: "p_sr" }],
+};
+
+const salesReturns: DocType = {
+  key: "sales_returns", slug: "sales-return", label: "Retur Penjualan", module: "Penjualan", submittable: true,
+  titleField: "name", subtitleField: "customer_id", searchFields: ["name", "remarks"],
+  orderBy: { column: "created_at", ascending: false }, printTitle: "NOTA RETUR PENJUALAN",
+  fields: [
+    ...docHeader(),
+    { name: "customer_id", label: "Customer", type: "link", link: "customers", required: true, inList: true },
+    { name: "posting_date", label: "Tanggal", type: "date", required: true, inList: true, default: today },
+    { name: "sales_invoice_id", label: "Sales Invoice Asal", type: "link", link: "sales_invoices", required: true,
+      linkFilters: { docstatus: 1 } },
+    { name: "update_stock", label: "Barang kembali ke gudang", type: "check", default: true },
+    { name: "set_warehouse_id", label: "Gudang Penerima", type: "link", link: "warehouses", dependsOn: (d) => !!d.update_stock },
+    { name: "reason", label: "Alasan Retur", type: "data" },
+    { name: "remarks", label: "Keterangan", type: "text" },
+    ...tradeTotals(),
+    { name: "applied_amount", label: "Mengurangi Piutang", type: "currency", readOnly: true },
+  ],
+  child: {
+    table: "sales_return_items", label: "Item Diretur",
+    fields: [
+      { name: "item_id", label: "Item", type: "link", link: "items", required: true, width: "min-w-64" },
+      { name: "qty", label: "Qty", type: "float", required: true, width: "w-24" },
+      { name: "rate", label: "Harga", type: "currency", width: "w-36" },
+      { name: "discount_percent", label: "Disk %", type: "percent", width: "w-20" },
+      { name: "amount", label: "Jumlah", type: "currency", readOnly: true, width: "w-36" },
+      { name: "warehouse_id", label: "Gudang", type: "link", link: "warehouses", width: "min-w-36" },
+      { name: "batch_no", label: "No. Batch", type: "data", width: "w-32" },
+    ],
+  },
+};
+
+const purchaseReturns: DocType = {
+  key: "purchase_returns", slug: "purchase-return", label: "Retur Pembelian", module: "Pembelian", submittable: true,
+  titleField: "name", subtitleField: "supplier_id", searchFields: ["name", "remarks"],
+  orderBy: { column: "created_at", ascending: false }, printTitle: "NOTA RETUR PEMBELIAN",
+  fields: [
+    ...docHeader(),
+    { name: "supplier_id", label: "Supplier", type: "link", link: "suppliers", required: true, inList: true },
+    { name: "posting_date", label: "Tanggal", type: "date", required: true, inList: true, default: today },
+    { name: "purchase_invoice_id", label: "Purchase Invoice Asal", type: "link", link: "purchase_invoices", required: true,
+      linkFilters: { docstatus: 1 } },
+    { name: "update_stock", label: "Barang dikeluarkan dari gudang", type: "check", default: true },
+    { name: "set_warehouse_id", label: "Gudang Asal Barang", type: "link", link: "warehouses", dependsOn: (d) => !!d.update_stock },
+    { name: "reason", label: "Alasan Retur", type: "data" },
+    { name: "remarks", label: "Keterangan", type: "text" },
+    ...tradeTotals(),
+    { name: "applied_amount", label: "Mengurangi Hutang", type: "currency", readOnly: true },
+  ],
+  child: {
+    table: "purchase_return_items", label: "Item Diretur",
+    fields: [
+      { name: "item_id", label: "Item", type: "link", link: "items", required: true, width: "min-w-64" },
+      { name: "qty", label: "Qty", type: "float", required: true, width: "w-24" },
+      { name: "rate", label: "Harga", type: "currency", width: "w-36" },
+      { name: "discount_percent", label: "Disk %", type: "percent", width: "w-20" },
+      { name: "amount", label: "Jumlah", type: "currency", readOnly: true, width: "w-36" },
+      { name: "warehouse_id", label: "Gudang", type: "link", link: "warehouses", width: "min-w-36" },
+      { name: "batch_no", label: "No. Batch (kosong = FEFO)", type: "data", width: "w-36" },
+      { name: "batch_allocation", label: "Alokasi Batch", type: "data", readOnly: true },
+    ],
+  },
+};
+
+// ----------------------------- PRODUKSI -------------------------------
+const boms: DocType = {
+  key: "boms", slug: "bom", label: "Formula (BOM)", module: "Produksi", submittable: true,
+  titleField: "name", subtitleField: "item_id", searchFields: ["name", "remarks"],
+  orderBy: { column: "created_at", ascending: false },
+  fields: [
+    ...docHeader(),
+    { name: "item_id", label: "Produk Jadi", type: "link", link: "items", required: true, inList: true },
+    { name: "qty", label: "Ukuran Batch Formula (qty hasil)", type: "float", required: true, default: 1, inList: true },
+    { name: "remarks", label: "Keterangan", type: "text" },
+  ],
+  child: {
+    table: "bom_items", label: "Bahan (untuk ukuran batch di atas)",
+    fields: [
+      { name: "item_id", label: "Bahan", type: "link", link: "items", required: true, width: "min-w-64" },
+      { name: "qty", label: "Qty", type: "float", required: true, width: "w-28" },
+    ],
+  },
+  makes: [{ label: "Perintah Produksi", rpc: "make_work_order", arg: "p_bom", target: "work_orders" }],
+};
+
+const workOrders: DocType = {
+  key: "work_orders", slug: "work-order", label: "Perintah Produksi", module: "Produksi", submittable: true,
+  titleField: "name", subtitleField: "item_id", searchFields: ["name", "batch_no", "remarks"],
+  orderBy: { column: "created_at", ascending: false },
+  fields: [
+    ...docHeader(),
+    { name: "bom_id", label: "Formula (BOM)", type: "link", link: "boms", required: true, inList: true, linkFilters: { docstatus: 1 } },
+    { name: "item_id", label: "Produk Jadi", type: "link", link: "items", readOnly: true, inList: true },
+    { name: "qty", label: "Qty Diproduksi", type: "float", required: true, inList: true },
+    { name: "posting_date", label: "Tanggal", type: "date", required: true, inList: true, default: today },
+    { name: "source_warehouse_id", label: "Gudang Bahan", type: "link", link: "warehouses" },
+    { name: "target_warehouse_id", label: "Gudang Hasil Produksi", type: "link", link: "warehouses", required: true },
+    { name: "batch_no", label: "No. Batch Hasil", type: "data" },
+    { name: "mfg_date", label: "Tgl. Produksi", type: "date" },
+    { name: "expiry_date", label: "Tgl. Kedaluwarsa", type: "date" },
+    { name: "total_cost", label: "Total Biaya Bahan", type: "currency", readOnly: true },
+    { name: "unit_cost", label: "Biaya per Unit", type: "currency", readOnly: true },
+    { name: "remarks", label: "Keterangan", type: "text" },
+  ],
+  child: {
+    table: "work_order_items", label: "Bahan yang Dipakai",
+    fields: [
+      { name: "item_id", label: "Bahan", type: "link", link: "items", required: true, width: "min-w-56" },
+      { name: "qty", label: "Qty", type: "float", required: true, width: "w-28" },
+      { name: "warehouse_id", label: "Gudang", type: "link", link: "warehouses", width: "min-w-36" },
+      { name: "batch_no", label: "No. Batch (kosong = FEFO)", type: "data", width: "w-36" },
+      { name: "rate", label: "Harga Pokok", type: "currency", readOnly: true, width: "w-32" },
+      { name: "amount", label: "Jumlah", type: "currency", readOnly: true, width: "w-32" },
+      { name: "batch_allocation", label: "Alokasi Batch", type: "data", readOnly: true },
+    ],
+  },
+  actions: [{ label: "Hitung Bahan dari BOM", rpc: "load_work_order_items", arg: "p_wo" }],
 };
 
 // --------------------------- AKUNTANSI --------------------------------
@@ -525,9 +676,10 @@ const journalEntries: DocType = {
 };
 
 export const DOCTYPES: DocType[] = [
-  items, warehouses, stockEntries,
-  suppliers, purchaseOrders, purchaseReceipts, purchaseInvoices,
-  customers, salesOrders, deliveryNotes, salesInvoices,
+  items, warehouses, stockEntries, stockReconciliations,
+  boms, workOrders,
+  suppliers, purchaseOrders, purchaseReceipts, purchaseInvoices, purchaseReturns,
+  customers, salesOrders, deliveryNotes, salesInvoices, salesReturns,
   paymentEntries, journalEntries, accounts,
   uoms, itemGroups, companies,
 ];
@@ -570,6 +722,7 @@ export const MODULES: { name: DocType["module"]; reports?: { label: string; href
     { label: "Stok per Batch & Kedaluwarsa", href: "/reports/batch-stock", perm: "stock_ledger" },
     { label: "Buku Besar Stok", href: "/reports/stock-ledger", perm: "stock_ledger" },
   ] },
+  { name: "Produksi" },
   { name: "Pembelian", reports: [
     { label: "Umur Hutang", href: "/reports/payable", perm: "purchase_invoices" },
   ] },

@@ -41,6 +41,10 @@ const CFG: Record<string, Cfg> = {
   sales_invoices:    { party: "Ditagihkan kepada", priced: true, batch: false, words: true,
                        note: "Pembayaran dianggap sah setelah dana diterima di rekening perusahaan. Mohon cantumkan nomor invoice pada keterangan transfer.",
                        signs: ["Hormat kami"] },
+  sales_returns:     { party: "Customer", priced: true, batch: true, words: true,
+                       note: "Nota ini mengurangi tagihan Sales Invoice yang disebut pada keterangan.", signs: ["Dibuat oleh", "Disetujui", "Customer"] },
+  purchase_returns:  { party: "Supplier", priced: true, batch: false, words: true,
+                       note: "Barang dikembalikan kepada supplier dan nilainya mengurangi hutang pada Purchase Invoice terkait.", signs: ["Dibuat oleh", "Disetujui", "Supplier"] },
   stock_entries:     { priced: true, batch: true, signs: ["Dibuat oleh", "Diperiksa", "Disetujui"] },
 };
 

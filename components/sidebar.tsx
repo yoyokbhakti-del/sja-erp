@@ -1,14 +1,14 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Boxes, Landmark, LayoutDashboard, LogOut, Settings, ShoppingCart, Truck } from "lucide-react";
+import { Boxes, Factory, Landmark, LayoutDashboard, LogOut, Settings, ShoppingCart, Truck } from "lucide-react";
 import { DOCTYPES, MODULES, docUrl } from "@/lib/doctypes";
 import { cn } from "@/lib/format";
 import { usePerms } from "@/components/perms";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-const ICONS = { Stok: Boxes, Pembelian: ShoppingCart, Penjualan: Truck, Akuntansi: Landmark, Pengaturan: Settings };
+const ICONS = { Stok: Boxes, Produksi: Factory, Pembelian: ShoppingCart, Penjualan: Truck, Akuntansi: Landmark, Pengaturan: Settings };
 
 export function Sidebar() {
   const path = usePathname();

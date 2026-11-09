@@ -9,9 +9,10 @@ Tanggal mulai pembukuan: **29 Oktober 2026** (bisa diubah di menu Perusahaan).
 | Modul | Isi |
 |---|---|
 | Fondasi | Login Supabase, role & izin per dokumen (baca/tulis/submit/cancel), Row Level Security, audit trail append-only, penomoran otomatis `PO-2026-00001` |
-| Stok | Item (batch, kedaluwarsa, no. registrasi Kementan, titik reorder), Gudang (Karantina/Bahan Baku/Produk Jadi/Reject…), Stock Entry (terima/keluar/transfer), Saldo Stok, Stok per Batch, Buku Besar Stok |
-| Pembelian | Supplier (+ Approved Vendor CPOHB), Purchase Order → Purchase Receipt → Purchase Invoice |
-| Penjualan | Customer (+ plafon kredit), Sales Order → Delivery Note (Surat Jalan) → Sales Invoice |
+| Stok | Item (batch, kedaluwarsa, no. registrasi Kementan, titik reorder), Gudang (Karantina/Bahan Baku/Produk Jadi/Reject…), Stock Entry (terima/keluar/transfer), Stok Opname (hitung fisik → selisih jadi penyesuaian stok + jurnal; tombol Ambil Stok Sistem), Saldo Stok, Stok per Batch, Buku Besar Stok |
+| Pembelian | Supplier (+ Approved Vendor CPOHB), Purchase Order → Purchase Receipt → Purchase Invoice → Retur Pembelian (nota debit, barang keluar per batch) |
+| Penjualan | Customer (+ plafon kredit), Sales Order → Delivery Note (Surat Jalan) → Sales Invoice → Retur Penjualan (nota kredit, stok kembali di harga pokok semula) |
+| Produksi | Formula (BOM) disetujui lewat Submit → Perintah Produksi: bahan terpakai otomatis FEFO per batch, hasil masuk gudang sebagai batch baru dengan harga pokok = biaya bahan ÷ qty |
 | Akuntansi | Bagan Akun (COA standar Indonesia), jurnal otomatis dari setiap transaksi, Payment Entry (terima piutang / bayar hutang / transfer kas-bank, termasuk cicilan & uang muka), Journal Entry, saldo awal, kunci periode. Laporan: Buku Besar, Neraca Saldo, Laba Rugi, Neraca, Umur Piutang, Umur Hutang. Cetak bukti kas/bank (dengan terbilang) & bukti jurnal |
 | Lain-lain | Dashboard KPI, cetak dokumen (PO, Surat Jalan, Invoice, BPB), export CSV, timeline aktivitas per dokumen |
 | Desain Cetakan | Menu Pengaturan > Desain Cetakan: editor kanvas bebas untuk cetak grafis per dokumen. Teks (dengan data otomatis seperti `{party.name}`), daftar data, blok total, kotak, garis, gambar/logo, dan tanda tangan diletakkan, digeser, dan diubah ukurannya langsung di atas kertas (satuan mm, kisi & magnet, undo/redo, tombol panah). Tabel barang (kolom, lebar, garis) berada di antara bagian Kop dan Bawah. Satu desain bisa dijadikan default; cetak dot-matrix teks tidak berubah |
@@ -35,6 +36,9 @@ Tanggal mulai pembukuan: **29 Oktober 2026** (bisa diubah di menu Perusahaan).
 | Delivery Note | Harga Pokok Penjualan | Persediaan |
 | Sales Invoice | Piutang Usaha | Penjualan + PPN Keluaran |
 | Stock Entry | Persediaan ↔ Penyesuaian Persediaan (atau akun lawan pilihan) | |
+| Retur Penjualan | Pendapatan Retur (4102) + PPN Keluaran; Persediaan | Piutang Usaha; HPP |
+| Retur Pembelian | Hutang Usaha | PPN Masukan + Persediaan (selisih harga ke Penyesuaian Persediaan) |
+| Stok Opname | Persediaan ↔ Penyesuaian Persediaan (selisih) | |
 | Payment Entry | Kas/Bank ↔ Piutang/Hutang per invoice | |
 
 Setiap posting wajib seimbang; saldo akun Persediaan selalu sama dengan nilai stok. Cancel membuat jurnal balik.
