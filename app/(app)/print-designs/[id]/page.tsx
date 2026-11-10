@@ -535,42 +535,38 @@ export default function PrintDesignEditor() {
       </Sec>
       <Sec title="Baris Bawah Tabel">
         <div className="text-xs text-zinc-400">Baris ringkasan di dalam tabel: label di kiri (rata kanan), nilai di kolom terakhir.</div>
-        <div className="text-xs font-medium text-zinc-600">Kotak di bawah kolom (centang kolom, lalu atur datanya):</div>
+        <div className="text-xs font-medium text-zinc-600">Kotak di bawah kolom (bisa lebih dari satu, tersusun ke bawah):</div>
         <div className="space-y-1.5">
           {cfg.table.columns.map((c) => {
-            const bi = (cfg.table.boxes ?? []).findIndex((b) => b.col === c.key);
-            const b = bi >= 0 ? cfg.table.boxes![bi] : null;
+            const list = (cfg.table.boxes ?? []).map((b, gi) => ({ b, gi })).filter((x) => x.b.col === c.key);
             return (
               <div key={c.key} className="rounded-md border border-zinc-200 p-1.5">
-                <Chk checked={!!b} label={c.label}
-                  onChange={(v) => upd((x) => { const a = (x.table.boxes ?? []).filter((k) => k.col !== c.key); if (v) a.push({ col: c.key, v: "" }); x.table.boxes = a; })} />
-                {b && (
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    <div className="min-w-[140px] flex-1"><VarSelect value={b.v} empty="Kosong (tulis tangan)" onChange={(v) => upd((x) => { x.table.boxes![bi].v = v; })} /></div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium">{c.label}</span>
+                  <button type="button" className="rounded border border-zinc-200 px-1.5 py-0.5 text-[11px] hover:bg-zinc-50"
+                    onClick={() => upd((x) => { (x.table.boxes ??= []).push({ col: c.key, v: "" }); })}>+ Kotak</button>
+                </div>
+                {list.map(({ b, gi }, n) => (
+                  <div key={gi} className="mt-1 flex flex-wrap items-center gap-1">
+                    <span className="w-4 text-center text-[10px] text-zinc-400">{n + 1}</span>
+                    <div className="min-w-[130px] flex-1"><VarSelect value={b.v} empty="Kosong (tulis tangan)" onChange={(v) => upd((x) => { x.table.boxes![gi].v = v; })} /></div>
                     <input type="number" min={4} max={30} step={0.5} placeholder="pt" title="Ukuran huruf (pt)" value={b.size ?? ""}
                       className="h-7 w-14 rounded border border-zinc-200 bg-white px-1 text-[11px]"
-                      onChange={(e) => upd((x) => { const n = parseFloat(e.target.value); if (n > 0) x.table.boxes![bi].size = n; else delete x.table.boxes![bi].size; }, `bxs${bi}`)} />
-                    <IconBtn title="Tebal" active={b.bold} onClick={() => upd((x) => { x.table.boxes![bi].bold = !x.table.boxes![bi].bold; })}><span className="text-[11px] font-bold">B</span></IconBtn>
+                      onChange={(e) => upd((x) => { const v = parseFloat(e.target.value); if (v > 0) x.table.boxes![gi].size = v; else delete x.table.boxes![gi].size; }, `bxs${gi}`)} />
+                    <IconBtn title="Tebal" active={b.bold} onClick={() => upd((x) => { x.table.boxes![gi].bold = !x.table.boxes![gi].bold; })}><span className="text-[11px] font-bold">B</span></IconBtn>
                     {(["l", "c", "r"] as const).map((a) => (
                       <IconBtn key={a} title={{ l: "Rata kiri", c: "Tengah", r: "Rata kanan" }[a]} active={(b.align ?? "r") === a}
-                        onClick={() => upd((x) => { x.table.boxes![bi].align = a; })}>
+                        onClick={() => upd((x) => { x.table.boxes![gi].align = a; })}>
                         <span className="text-[10px] font-bold">{a.toUpperCase()}</span>
                       </IconBtn>
                     ))}
+                    <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => upd((x) => { x.table.boxes!.splice(gi, 1); })}><X size={13} /></button>
                   </div>
-                )}
+                ))}
               </div>
             );
           })}
         </div>
-        {(cfg.table.footRows ?? []).map((f, i) => (
-          <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1.5">
-            <Input value={f.label} onChange={(e) => upd((x) => { x.table.footRows![i].label = e.target.value; }, `fr${i}`)} />
-            <VarSelect value={f.v} empty="Pilih data…" onChange={(v) => upd((x) => { const r = x.table.footRows![i]; r.v = v; if (v && !r.label) r.label = VAR_CATALOG.find((k) => k.key === v)?.label ?? ""; })} />
-            <IconBtn title="Tebal" active={f.bold} onClick={() => upd((x) => { const r = x.table.footRows![i]; r.bold = !r.bold; })}><span className="text-[11px] font-bold">B</span></IconBtn>
-            <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => upd((x) => { x.table.footRows!.splice(i, 1); })}><X size={13} /></button>
-          </div>
-        ))}
         <Button variant="outline" onClick={() => upd((c) => { const a = (c.table.footRows ??= []); for (let k = 0; k < 4; k++) a.push({ label: "", v: "" }); })}>
           <Plus size={13} /> Tambah 4 baris kosong di bawah tabel
         </Button>

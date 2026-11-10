@@ -278,10 +278,10 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
         </tbody>
         {((design.table.footRows ?? []).length > 0 || (design.table.boxes ?? []).length > 0) && (
           <tfoot>
-            {(design.table.boxes ?? []).length > 0 && (
-              <tr className="dp-boxrow">
+            {Array.from({ length: Math.max(0, ...cols.map((c) => (design.table.boxes ?? []).filter((x) => x.col === c.cfg.key).length)) }).map((_, r) => (
+              <tr key={`bx${r}`} className="dp-boxrow">
                 {cols.map((c) => {
-                  const b = design.table.boxes!.find((x) => x.col === c.cfg.key);
+                  const b = (design.table.boxes ?? []).filter((x) => x.col === c.cfg.key)[r];
                   if (!b) return <td key={c.cfg.key} style={{ border: "none" }} />;
                   const al = b.align ?? "r";
                   return (
@@ -293,7 +293,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
                   );
                 })}
               </tr>
-            )}
+            ))}
             {design.table.footRows!.map((f, i) => (
               <tr key={i} className="dp-foot" style={{ height: "6.5mm" }}>
                 <td colSpan={Math.max(cols.length - 1, 1)} className="dp-r" style={{ fontWeight: f.bold ? 700 : undefined }}>{f.label}</td>
