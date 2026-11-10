@@ -647,6 +647,15 @@ export default function PrintDesignEditor() {
             <option value="">+ Tambah baris…</option>
             {VAR_CATALOG.map((v) => <option key={v.key} value={v.key}>{v.group} – {v.label}</option>)}
           </Sel>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <select className="h-7 rounded-md border border-zinc-200 bg-white px-1 text-xs" title="Jenis huruf" value={E.family ?? ""}
+              onChange={(e) => patch(E.id, { family: e.target.value as FontFam | "" })}>
+              <option value="">Huruf: ikut dokumen</option><option value="sans">Sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option>
+            </select>
+            <IconBtn title="Tebal (seluruh isi)" active={E.bold} onClick={() => patch(E.id, { bold: !E.bold })}><span className="text-[11px] font-bold">B</span></IconBtn>
+            <IconBtn title="Miring" active={E.italic} onClick={() => patch(E.id, { italic: !E.italic })}><span className="text-[11px] italic">I</span></IconBtn>
+            <IconBtn title="Label tebal" active={E.labelBold} onClick={() => patch(E.id, { labelBold: !E.labelBold })}><span className="text-[10px] font-bold">Lbl B</span></IconBtn>
+          </div>
           <div className="grid grid-cols-3 gap-2">
             <F label="Lebar label (mm)"><NumInput value={E.labelW ?? 30} min={5} max={200} onChange={(v) => patch(E.id, { labelW: v })} /></F>
             <F label="Ukuran (pt)"><NumInput value={E.size ?? cfg.font.size} min={4} max={30} step={0.5} onChange={(v) => patch(E.id, { size: v })} /></F>
@@ -662,6 +671,14 @@ export default function PrintDesignEditor() {
               <Chk key={t.key} checked={(E.keys ?? []).includes(t.key)} label={t.key === "ppn" ? "PPN" : t.key === "total" ? "Total" : t.label({})}
                 onChange={(v) => patch(E.id, { keys: TOTAL_DEFS.map((x) => x.key).filter((k) => (k === t.key ? v : (E.keys ?? []).includes(k))) })} />
             ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <select className="h-7 rounded-md border border-zinc-200 bg-white px-1 text-xs" title="Jenis huruf" value={E.family ?? ""}
+              onChange={(e) => patch(E.id, { family: e.target.value as FontFam | "" })}>
+              <option value="">Huruf: ikut dokumen</option><option value="sans">Sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option>
+            </select>
+            <IconBtn title="Tebal (seluruh isi)" active={E.bold} onClick={() => patch(E.id, { bold: !E.bold })}><span className="text-[11px] font-bold">B</span></IconBtn>
+            <IconBtn title="Miring" active={E.italic} onClick={() => patch(E.id, { italic: !E.italic })}><span className="text-[11px] italic">I</span></IconBtn>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <F label="Ukuran (pt)"><NumInput value={E.size ?? cfg.font.size} min={4} max={30} step={0.5} onChange={(v) => patch(E.id, { size: v })} /></F>

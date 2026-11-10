@@ -78,6 +78,12 @@ const mm = (n: number) => `${n}mm`;
 function ElBody({ el, vars, d, doc, rows, dtKey }: { el: El; vars: Record<string, string>; d: DesignConfig; doc: Row; rows: Row[]; dtKey: string }) {
   const size = el.size ?? d.font.size;
   const color = el.color || "#000";
+  // huruf untuk Daftar Data & Blok Total
+  const listFont: React.CSSProperties = {
+    fontSize: `${size}pt`, color, fontFamily: el.family ? FONTS[el.family] : undefined,
+    fontWeight: el.bold ? 700 : undefined, fontStyle: el.italic ? "italic" : undefined,
+    letterSpacing: el.spacing ? mm(el.spacing) : undefined,
+  };
   switch (el.type) {
     case "text": {
       const txt = resolveText(el.text ?? "", vars);
@@ -96,10 +102,10 @@ function ElBody({ el, vars, d, doc, rows, dtKey }: { el: El; vars: Record<string
     case "kv": {
       const items = (el.rows ?? []).map((r) => ({ label: r.label, value: vars[r.v] ?? "" })).filter((r) => r.value);
       return (
-        <div style={{ fontSize: `${size}pt`, color, width: "100%" }}>
+        <div style={{ ...listFont, width: "100%" }}>
           {items.map((r, i) => (
             <div key={i} style={{ display: "flex", padding: "0.6mm 0" }}>
-              <span style={{ width: mm(el.labelW ?? 30), flexShrink: 0, display: "flex", justifyContent: "space-between", paddingRight: "2mm" }}>
+              <span style={{ width: mm(el.labelW ?? 30), flexShrink: 0, display: "flex", justifyContent: "space-between", paddingRight: "2mm", fontWeight: el.labelBold ? 700 : undefined }}>
                 <span>{r.label}</span><span>:</span>
               </span>
               <span style={{ flex: 1, overflowWrap: "anywhere" }}>{r.value}</span>
@@ -112,7 +118,7 @@ function ElBody({ el, vars, d, doc, rows, dtKey }: { el: El; vars: Record<string
       const items = (el.keys ?? []).map((k) => TOTAL_DEFS.find((t) => t.key === k))
         .filter((t): t is NonNullable<typeof t> => !!t).filter((t) => !t.only || t.only(dtKey, doc));
       return (
-        <div style={{ fontSize: `${size}pt`, color, width: "100%" }}>
+        <div style={{ ...listFont, width: "100%" }}>
           {items.map((t) => (
             <div key={t.key} style={t.grand
               ? { display: "flex", justifyContent: "space-between", gap: "4mm", borderTop: "1px solid #000", borderBottom: "3px double #000", fontWeight: 700, padding: "1.5mm 0", fontSize: `${size + 1}pt` }

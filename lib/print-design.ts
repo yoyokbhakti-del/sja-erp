@@ -52,7 +52,7 @@ export type El = {
   // gambar
   src?: string;
   // daftar info (label : isi) & blok total
-  rows?: { label: string; v: string }[]; labelW?: number; keys?: string[];
+  rows?: { label: string; v: string }[]; labelW?: number; keys?: string[]; labelBold?: boolean;
 };
 
 export type TableCfg = {
