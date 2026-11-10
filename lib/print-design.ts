@@ -35,6 +35,7 @@ export type FontFam = "sans" | "serif" | "mono";
 export type ColCfg = {
   key: string; label: string; width: number | null;
   fam?: FontFam; size?: number; bold?: boolean; italic?: boolean; align?: "l" | "c" | "r";
+  text?: string;          // khusus kolom kustom: teks tetap di tiap baris (kosong = kolom kosong untuk ditulis tangan)
 };
 
 export type ElType = "text" | "kv" | "totals" | "rect" | "line" | "image";
@@ -56,7 +57,9 @@ export type El = {
 };
 
 export type TableCfg = {
-  columns: ColCfg[]; border: "full" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
+  columns: ColCfg[]; border: "full" | "box" | "boxh" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
+  extraRows?: number;     // baris kosong tambahan di bawah data
+  lineW?: number;         // tebal garis (pt)
   headBg: boolean; size: number; pad: number; headUpper: boolean;
   fam?: FontFam;          // jenis huruf tabel (kosong = ikut dokumen)
 };
@@ -134,7 +137,9 @@ export const COLUMN_DEFS: ColDef[] = [
   { key: "discount", label: "Disk. %", width: 14, align: "r", get: (r) => (Number(r.discount_percent) ? number(r.discount_percent) : "") },
   { key: "amount", label: "Jumlah", width: 30, align: "r", get: (r) => rupiah(r.amount) },
 ];
-export const colDef = (key: string) => COLUMN_DEFS.find((c) => c.key === key);
+const CUSTOM_COL: ColDef = { key: "custom", label: "Kolom kustom", width: null, align: "l", get: () => "" };
+export const isCustomCol = (key: string) => /^custom_\w+$/.test(key);
+export const colDef = (key: string): ColDef | undefined => COLUMN_DEFS.find((c) => c.key === key) ?? (isCustomCol(key) ? CUSTOM_COL : undefined);
 
 // ------------------------ katalog total -------------------------------
 export const TOTAL_DEFS: { key: string; label: (d: Row) => string; get: (d: Row, rows: Row[]) => string; grand?: boolean; only?: (key: string, d: Row) => boolean }[] = [
@@ -484,6 +489,7 @@ function cleanCol(x: ColCfg): ColCfg {
   if (x.bold) o.bold = true;
   if (x.italic) o.italic = true;
   if (x.align === "l" || x.align === "c" || x.align === "r") o.align = x.align;
+  if (isCustomCol(x.key) && typeof x.text === "string") o.text = x.text.slice(0, 200);
   return o;
 }
 
@@ -502,7 +508,10 @@ export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
       watermark: c.watermark !== false,
       head: { h: num(c.head?.h, d.head.h, 5, 400) },
       foot: { h: num(c.foot?.h, d.foot.h, 5, 400), pin: !!c.foot?.pin },
-      table: { ...d.table, ...c.table, fam: c.table?.fam === "sans" || c.table?.fam === "serif" || c.table?.fam === "mono" ? c.table.fam : undefined, columns: cols.length ? cols : d.table.columns },
+      table: {
+        ...d.table, ...c.table, fam: c.table?.fam === "sans" || c.table?.fam === "serif" || c.table?.fam === "mono" ? c.table.fam : undefined,
+        border: ["full", "box", "boxh", "horizontal", "none"].includes(c.table?.border) ? c.table.border : d.table.border,
+        extraRows: num(c.table?.extraRows, 0, 0, 40), lineW: num(c.table?.lineW, 0.6, 0.1, 3), columns: cols.length ? cols : d.table.columns },
       els: cleanEls(c.els),
     };
   }

@@ -19,7 +19,7 @@ import { usePerms } from "@/components/perms";
 import { DesignPreview, type EditApi } from "@/components/design-print";
 import { loadPrintData } from "@/lib/print-data";
 import {
-  COLUMN_DEFS, type FontFam, PAPERS, SAMPLE_COMPANY, TOTAL_DEFS, VAR_CATALOG, colDef, defaultDesign, designDocLabel, mergeDesign, newEl, sampleData, signGroup,
+  COLUMN_DEFS, type FontFam, isCustomCol, PAPERS, SAMPLE_COMPANY, TOTAL_DEFS, VAR_CATALOG, colDef, defaultDesign, designDocLabel, mergeDesign, newEl, sampleData, signGroup,
   type Band, type DesignConfig, type El, type ElType,
 } from "@/lib/print-design";
 
@@ -489,7 +489,9 @@ export default function PrintDesignEditor() {
             <div key={c.key} className="grid grid-cols-[1fr_62px_auto] items-center gap-1.5 rounded-md border border-zinc-200 p-1.5">
               <div>
                 <Input value={c.label} onChange={(e) => upd((x) => { x.table.columns[i].label = e.target.value; }, `col${i}`)} />
-                <div className="mt-0.5 text-[10px] text-zinc-400">{colDef(c.key)?.label} · {c.key}</div>
+                {isCustomCol(c.key)
+                  ? <Input className="mt-1" placeholder="Isi tetap tiap baris (kosong = untuk tulis tangan)" value={c.text ?? ""} onChange={(e) => upd((x) => { x.table.columns[i].text = e.target.value; }, `coltx${i}`)} />
+                  : <div className="mt-0.5 text-[10px] text-zinc-400">{colDef(c.key)?.label} · {c.key}</div>}
               </div>
               <Input type="number" min={5} max={200} placeholder="auto" value={c.width ?? ""} title="Lebar kolom (mm), kosong = otomatis"
                 onChange={(e) => upd((x) => { x.table.columns[i].width = e.target.value ? Number(e.target.value) : null; }, `colw${i}`)} />
@@ -526,13 +528,16 @@ export default function PrintDesignEditor() {
             {freeCols.map((c) => <option key={c.key} value={c.key}>{c.label} ({c.key})</option>)}
           </Sel>
         )}
+        <Button variant="outline" onClick={() => upd((c) => { c.table.columns.push({ key: `custom_${Date.now().toString(36)}`, label: "Kolom baru", width: null }); })}>
+          <Plus size={13} /> Tambah kolom kosong / teks tetap
+        </Button>
         <div className="text-xs text-zinc-400">Lebar kolom dalam mm; kosongkan agar otomatis (sisa lebar).</div>
       </Sec>
       <Sec title="Gaya Tabel">
         <div className="grid grid-cols-2 gap-2">
           <F label="Garis tabel">
             <Sel value={cfg.table.border} onChange={(v) => upd((c) => { c.table.border = v as DesignConfig["table"]["border"]; })}>
-              <option value="full">Penuh (kotak)</option><option value="horizontal">Garis datar saja</option><option value="none">Tanpa garis</option>
+              <option value="full">Penuh (semua kotak)</option><option value="box">Kotak luar saja</option><option value="boxh">Kotak luar + garis datar</option><option value="horizontal">Garis datar saja</option><option value="none">Tanpa garis</option>
             </Sel>
           </F>
           <F label="Jenis huruf tabel">
@@ -540,6 +545,8 @@ export default function PrintDesignEditor() {
               <option value="">Ikut dokumen</option><option value="sans">Sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option>
             </Sel>
           </F>
+          <F label="Tebal garis (pt)"><NumInput value={cfg.table.lineW ?? 0.6} min={0.1} max={3} step={0.1} onChange={(v) => upd((c) => { c.table.lineW = v; }, "tlw")} /></F>
+          <F label="Tambah baris kosong"><NumInput value={cfg.table.extraRows ?? 0} min={0} max={40} step={1} onChange={(v) => upd((c) => { c.table.extraRows = v; }, "xrows")} /></F>
           <F label="Baris minimal"><NumInput value={cfg.table.minRows} min={0} max={40} step={1} onChange={(v) => upd((c) => { c.table.minRows = v; }, "minrows")} /></F>
           <F label="Ukuran huruf (pt, 0 = dasar)"><NumInput value={cfg.table.size} min={0} max={16} step={0.5} onChange={(v) => upd((c) => { c.table.size = v; }, "tsize")} /></F>
           <F label="Jarak isi sel (mm)"><NumInput value={cfg.table.pad} min={0} max={6} step={0.25} onChange={(v) => upd((c) => { c.table.pad = v; }, "tpad")} /></F>

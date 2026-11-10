@@ -8,7 +8,7 @@
 import type React from "react";
 import { Printer, X } from "lucide-react";
 import type { DocType } from "@/lib/doctypes";
-import { TOTAL_DEFS, buildVars, colDef, resolveText, type Band, type DesignConfig, type El } from "@/lib/print-design";
+import { TOTAL_DEFS, buildVars, colDef, isCustomCol, resolveText, type Band, type DesignConfig, type El } from "@/lib/print-design";
 
 type Row = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -35,7 +35,7 @@ function css(d: DesignConfig, scoped: boolean) {
   const fs = d.font.size;
   const t = d.table;
   const tfs = t.size > 0 ? t.size : fs;
-  const line = t.border === "none" ? "none" : "0.6pt solid #000";
+  const line = t.border === "none" ? "none" : `${t.lineW ?? 0.6}pt solid #000`;
   return `
 ${scoped ? "" : `@page { size: ${p.w}mm ${p.h}mm; margin: ${p.mt}mm ${p.mr}mm ${p.mb}mm ${p.ml}mm; }`}
 .dp-root { color: #000; ${scoped ? "" : "min-height: 100vh; background: #e5e5e5; padding: 18px 0 40px;"}
@@ -56,8 +56,10 @@ ${scoped ? "" : `@page { size: ${p.w}mm ${p.h}mm; margin: ${p.mt}mm ${p.mr}mm ${
 .dp-band.pin { margin-top: auto; }
 .dp-el { position: absolute; box-sizing: border-box; }
 .dp-items { width: 100%; border-collapse: collapse; position: relative; z-index: 1; table-layout: fixed; flex-shrink: 0; font-size: ${tfs}pt;${t.fam ? ` font-family: ${FONTS[t.fam]};` : ""} }
-.dp-items th, .dp-items td { ${t.border === "none" ? "" : t.border === "horizontal" ? "border-top: 0.6pt solid #000; border-bottom: 0.6pt solid #000;" : `border: ${line};`}
+.dp-items { ${t.border === "box" || t.border === "boxh" ? `border: ${line};` : ""} }
+.dp-items th, .dp-items td { ${t.border === "none" ? "" : t.border === "horizontal" ? `border-top: ${line}; border-bottom: ${line};` : t.border === "boxh" ? `border-bottom: ${line};` : t.border === "box" ? "" : `border: ${line};`}
   padding: ${t.pad}mm ${Math.max(t.pad + 0.5, 1)}mm; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
+.dp-items tbody tr:last-child td { ${t.border === "boxh" ? "border-bottom: none;" : ""} }
 .dp-items thead th { font-weight: 700; font-size: ${Math.max(tfs - 1, 6)}pt; ${t.headUpper ? "text-transform: uppercase;" : ""} ${t.headBg ? "background: #e5e7eb;" : ""} }
 .dp-items thead { display: table-header-group; }
 .dp-items tr { break-inside: avoid; }
@@ -169,7 +171,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
   const autoTitle = typeof dt.printTitle === "function" ? dt.printTitle(doc) : (dt.printTitle ?? dt.label.toUpperCase());
   const vars = buildVars({ dtKey: dt.key, title: autoTitle, doc, rows, company, maker, printedBy });
   const cols = design.table.columns.map((c) => ({ cfg: c, def: colDef(c.key)! })).filter((c) => c.def);
-  const fill = Math.max(0, design.table.minRows - rows.length);
+  const fill = Math.max(0, design.table.minRows - rows.length) + (design.table.extraRows ?? 0);
   const z = edit?.zoom ?? 1;
   const px = (n: number) => `${n / z}px`;
 
@@ -261,7 +263,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
             <tr key={r.id ?? i}>
               {cols.map((c) => {
                 const cls = alignCls(c);
-                const val = c.def.get(r, i, doc);
+                const val = isCustomCol(c.cfg.key) ? (c.cfg.text ?? "") : c.def.get(r, i, doc);
                 if (c.cfg.key === "item_name" && design.table.itemSubline) {
                   const sub = [r.item?.code, r.item?.reg_number && `No. Reg. ${r.item.reg_number}`].filter(Boolean).join(" · ");
                   return <td key={c.cfg.key} className={cls} style={colStyle(c, false)}><div className="dp-strong">{val}</div>{sub && <div className="dp-tiny">{sub}</div>}</td>;
