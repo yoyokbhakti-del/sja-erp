@@ -30,7 +30,12 @@ export const PAPERS: Record<string, { label: string; w: number; h: number }> = {
 };
 
 // ----------------------------- model ----------------------------------
-export type ColCfg = { key: string; label: string; width: number | null };
+export type FontFam = "sans" | "serif" | "mono";
+// Pengaturan huruf per kolom (kosong = ikut pengaturan tabel). size dalam pt, 0/kosong = ikut tabel.
+export type ColCfg = {
+  key: string; label: string; width: number | null;
+  fam?: FontFam; size?: number; bold?: boolean; italic?: boolean; align?: "l" | "c" | "r";
+};
 
 export type ElType = "text" | "kv" | "totals" | "rect" | "line" | "image";
 export type Band = "head" | "foot";
@@ -53,6 +58,7 @@ export type El = {
 export type TableCfg = {
   columns: ColCfg[]; border: "full" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
   headBg: boolean; size: number; pad: number; headUpper: boolean;
+  fam?: FontFam;          // jenis huruf tabel (kosong = ikut dokumen)
 };
 
 export type DesignConfig = {
@@ -459,16 +465,27 @@ function cleanEls(arr: unknown): El[] {
 }
 
 // Gabungkan konfigurasi tersimpan dengan bawaan agar desain lama tetap valid.
+// Bersihkan satu kolom dari data tersimpan (tolak nilai di luar pilihan)
+function cleanCol(x: ColCfg): ColCfg {
+  const o: ColCfg = {
+    key: x.key, label: typeof x.label === "string" ? x.label : colDef(x.key)!.label,
+    width: typeof x.width === "number" && x.width > 0 ? x.width : null,
+  };
+  if (x.fam === "sans" || x.fam === "serif" || x.fam === "mono") o.fam = x.fam;
+  if (typeof x.size === "number" && x.size > 0) o.size = Math.min(30, x.size);
+  if (x.bold) o.bold = true;
+  if (x.italic) o.italic = true;
+  if (x.align === "l" || x.align === "c" || x.align === "r") o.align = x.align;
+  return o;
+}
+
 // Desain format lama (v1, berbentuk formulir) otomatis diubah jadi tata letak bebas.
 export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
   const c = (raw && typeof raw === "object" ? raw : {}) as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
   if (c.v === 2 && Array.isArray(c.els)) {
     const d = defaultDesign(docKey);
     const cols = Array.isArray(c.table?.columns)
-      ? c.table.columns.filter((x: ColCfg) => x && colDef(x.key)).map((x: ColCfg) => ({
-          key: x.key, label: typeof x.label === "string" ? x.label : colDef(x.key)!.label,
-          width: typeof x.width === "number" && x.width > 0 ? x.width : null,
-        }))
+      ? c.table.columns.filter((x: ColCfg) => x && colDef(x.key)).map((x: ColCfg) => cleanCol(x))
       : d.table.columns;
     return {
       v: 2,
@@ -477,17 +494,14 @@ export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
       watermark: c.watermark !== false,
       head: { h: num(c.head?.h, d.head.h, 5, 400) },
       foot: { h: num(c.foot?.h, d.foot.h, 5, 400), pin: !!c.foot?.pin },
-      table: { ...d.table, ...c.table, columns: cols.length ? cols : d.table.columns },
+      table: { ...d.table, ...c.table, fam: c.table?.fam === "sans" || c.table?.fam === "serif" || c.table?.fam === "mono" ? c.table.fam : undefined, columns: cols.length ? cols : d.table.columns },
       els: cleanEls(c.els),
     };
   }
   // format lama
   const d = legacyDefault(docKey);
   const cols = Array.isArray(c.table?.columns)
-    ? c.table.columns.filter((x: ColCfg) => x && colDef(x.key)).map((x: ColCfg) => ({
-        key: x.key, label: typeof x.label === "string" ? x.label : colDef(x.key)!.label,
-        width: typeof x.width === "number" && x.width > 0 ? x.width : null,
-      }))
+    ? c.table.columns.filter((x: ColCfg) => x && colDef(x.key)).map((x: ColCfg) => cleanCol(x))
     : d.table.columns;
   const L: LegacyCfg = {
     paper: { ...d.paper, ...c.paper },

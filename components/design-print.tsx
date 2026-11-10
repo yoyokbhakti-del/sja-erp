@@ -55,7 +55,7 @@ ${scoped ? "" : `@page { size: ${p.w}mm ${p.h}mm; margin: ${p.mt}mm ${p.mr}mm ${
 .dp-band { position: relative; width: 100%; flex-shrink: 0; z-index: 1; break-inside: avoid; }
 .dp-band.pin { margin-top: auto; }
 .dp-el { position: absolute; box-sizing: border-box; }
-.dp-items { width: 100%; border-collapse: collapse; position: relative; z-index: 1; table-layout: fixed; flex-shrink: 0; font-size: ${tfs}pt; }
+.dp-items { width: 100%; border-collapse: collapse; position: relative; z-index: 1; table-layout: fixed; flex-shrink: 0; font-size: ${tfs}pt;${t.fam ? ` font-family: ${FONTS[t.fam]};` : ""} }
 .dp-items th, .dp-items td { ${t.border === "none" ? "" : t.border === "horizontal" ? "border-top: 0.6pt solid #000; border-bottom: 0.6pt solid #000;" : `border: ${line};`}
   padding: ${t.pad}mm ${Math.max(t.pad + 0.5, 1)}mm; vertical-align: top; text-align: left; overflow-wrap: anywhere; }
 .dp-items thead th { font-weight: 700; font-size: ${Math.max(tfs - 1, 6)}pt; ${t.headUpper ? "text-transform: uppercase;" : ""} ${t.headBg ? "background: #e5e7eb;" : ""} }
@@ -219,6 +219,21 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
     );
   };
 
+  const alignCls = (c: { cfg: DesignConfig["table"]["columns"][number]; def: { align: "l" | "r" | "c" } }) => {
+    const a = c.cfg.align ?? c.def.align;
+    return a === "r" ? "dp-r" : a === "c" ? "dp-c" : "";
+  };
+  // gaya huruf per kolom (judul memakai ukuran 1 pt lebih kecil seperti judul biasa)
+  const colStyle = (c: { cfg: DesignConfig["table"]["columns"][number] }, head: boolean): React.CSSProperties => {
+    const k = c.cfg;
+    return {
+      fontFamily: k.fam ? FONTS[k.fam] : undefined,
+      fontSize: k.size ? `${head ? Math.max(k.size - 1, 6) : k.size}pt` : undefined,
+      fontWeight: k.bold ? 700 : undefined,
+      fontStyle: k.italic ? "italic" : undefined,
+    };
+  };
+
   return (
     <div className="dp-sheet" onPointerDown={edit ? () => edit.onBlank() : undefined}>
       {watermark && <div className="dp-watermark">{watermark}</div>}
@@ -229,19 +244,19 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
         onPointerDown={edit ? (e) => { e.stopPropagation(); edit.onTable(); } : undefined}>
         <colgroup>{cols.map((c) => <col key={c.cfg.key} style={c.cfg.width ? { width: `${c.cfg.width}mm` } : undefined} />)}</colgroup>
         <thead>
-          <tr>{cols.map((c) => <th key={c.cfg.key} className={c.def.align === "r" ? "dp-r" : c.def.align === "c" ? "dp-c" : ""}>{c.cfg.label}</th>)}</tr>
+          <tr>{cols.map((c) => <th key={c.cfg.key} className={alignCls(c)} style={colStyle(c, true)}>{c.cfg.label}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
             <tr key={r.id ?? i}>
               {cols.map((c) => {
-                const cls = c.def.align === "r" ? "dp-r" : c.def.align === "c" ? "dp-c" : "";
+                const cls = alignCls(c);
                 const val = c.def.get(r, i, doc);
                 if (c.cfg.key === "item_name" && design.table.itemSubline) {
                   const sub = [r.item?.code, r.item?.reg_number && `No. Reg. ${r.item.reg_number}`].filter(Boolean).join(" · ");
-                  return <td key={c.cfg.key} className={cls}><div className="dp-strong">{val}</div>{sub && <div className="dp-tiny">{sub}</div>}</td>;
+                  return <td key={c.cfg.key} className={cls} style={colStyle(c, false)}><div className="dp-strong">{val}</div>{sub && <div className="dp-tiny">{sub}</div>}</td>;
                 }
-                return <td key={c.cfg.key} className={cls}>{val}</td>;
+                return <td key={c.cfg.key} className={cls} style={colStyle(c, false)}>{val}</td>;
               })}
             </tr>
           ))}

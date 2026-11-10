@@ -19,7 +19,7 @@ import { usePerms } from "@/components/perms";
 import { DesignPreview, type EditApi } from "@/components/design-print";
 import { loadPrintData } from "@/lib/print-data";
 import {
-  COLUMN_DEFS, PAPERS, SAMPLE_COMPANY, TOTAL_DEFS, VAR_CATALOG, colDef, defaultDesign, designDocLabel, mergeDesign, newEl, sampleData, signGroup,
+  COLUMN_DEFS, type FontFam, PAPERS, SAMPLE_COMPANY, TOTAL_DEFS, VAR_CATALOG, colDef, defaultDesign, designDocLabel, mergeDesign, newEl, sampleData, signGroup,
   type Band, type DesignConfig, type El, type ElType,
 } from "@/lib/print-design";
 
@@ -499,6 +499,24 @@ export default function PrintDesignEditor() {
                 <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50 disabled:opacity-30" disabled={cfg.table.columns.length <= 1}
                   onClick={() => upd((x) => { x.table.columns.splice(i, 1); })}><X size={13} /></button>
               </div>
+              <div className="col-span-3 flex flex-wrap items-center gap-1.5 border-t border-dashed border-zinc-200 pt-1.5">
+                <select className="h-7 rounded-md border border-zinc-200 bg-white px-1 text-xs" title="Jenis huruf kolom" value={c.fam ?? ""}
+                  onChange={(e) => upd((x) => { const k = x.table.columns[i]; if (e.target.value) k.fam = e.target.value as FontFam; else delete k.fam; })}>
+                  <option value="">Huruf: ikut tabel</option>
+                  <option value="sans">Sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option>
+                </select>
+                <input type="number" min={0} max={30} step={0.5} placeholder="pt" title="Ukuran huruf kolom (pt), kosong = ikut tabel"
+                  className="h-7 w-14 rounded-md border border-zinc-200 bg-white px-1.5 text-xs" value={c.size ?? ""}
+                  onChange={(e) => upd((x) => { const k = x.table.columns[i]; if (Number(e.target.value) > 0) k.size = Number(e.target.value); else delete k.size; }, `colsz${i}`)} />
+                <IconBtn title="Tebal" active={c.bold} onClick={() => upd((x) => { const k = x.table.columns[i]; if (k.bold) delete k.bold; else k.bold = true; })}><span className="text-[11px] font-bold">B</span></IconBtn>
+                <IconBtn title="Miring" active={c.italic} onClick={() => upd((x) => { const k = x.table.columns[i]; if (k.italic) delete k.italic; else k.italic = true; })}><span className="text-[11px] italic">I</span></IconBtn>
+                {(["l", "c", "r"] as const).map((a) => (
+                  <IconBtn key={a} title={{ l: "Rata kiri", c: "Tengah", r: "Rata kanan" }[a]} active={(c.align ?? colDef(c.key)?.align ?? "l") === a}
+                    onClick={() => upd((x) => { x.table.columns[i].align = a; })}>
+                    <span className="text-[10px] font-bold">{a === "l" ? "◧" : a === "c" ? "▣" : "◨"}</span>
+                  </IconBtn>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -515,6 +533,11 @@ export default function PrintDesignEditor() {
           <F label="Garis tabel">
             <Sel value={cfg.table.border} onChange={(v) => upd((c) => { c.table.border = v as DesignConfig["table"]["border"]; })}>
               <option value="full">Penuh (kotak)</option><option value="horizontal">Garis datar saja</option><option value="none">Tanpa garis</option>
+            </Sel>
+          </F>
+          <F label="Jenis huruf tabel">
+            <Sel value={cfg.table.fam ?? ""} onChange={(v) => upd((c) => { if (v) c.table.fam = v as FontFam; else delete c.table.fam; })}>
+              <option value="">Ikut dokumen</option><option value="sans">Sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option>
             </Sel>
           </F>
           <F label="Baris minimal"><NumInput value={cfg.table.minRows} min={0} max={40} step={1} onChange={(v) => upd((c) => { c.table.minRows = v; }, "minrows")} /></F>
