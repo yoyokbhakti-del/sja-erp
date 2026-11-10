@@ -86,7 +86,23 @@ export const META_FIELDS: { key: string; label: string; get: (d: Row) => unknown
   { key: "wh_to", label: "Ke Gudang", get: (d) => wh(d, "to_warehouse_id") },
   { key: "vehicle", label: "No. Kendaraan", get: (d) => d.vehicle_no },
   { key: "driver", label: "Sopir", get: (d) => d.driver_name },
+  { key: "currency", label: "Mata uang (kode)", get: (d) => d.currency || "IDR" },
+  { key: "currency_name", label: "Mata uang (nama)", get: (d) => CURRENCY_NAMES[String(d.currency || "IDR")] ?? d.currency },
+  { key: "credit_days", label: "Kredit (hari)", get: (d) => creditDays(d) },
+  { key: "credit_term", label: "Termin bayar (Kredit 30 hari / Tunai)", get: (d) => {
+      const n = creditDays(d);
+      return n === "" ? "" : Number(n) === 0 ? "Tunai" : `Kredit ${n} hari`;
+    } },
 ];
+const CURRENCY_NAMES: Record<string, string> = { IDR: "Rupiah", USD: "Dolar AS", SGD: "Dolar Singapura", EUR: "Euro" };
+// Lama kredit: selisih tanggal dokumen dan jatuh tempo; bila belum ada jatuh tempo, pakai termin bawaan customer/supplier.
+function creditDays(d: Row): string {
+  const t0 = Date.parse(String(d.posting_date ?? d.transaction_date ?? ""));
+  const t1 = Date.parse(String(d.due_date ?? ""));
+  if (!Number.isNaN(t0) && !Number.isNaN(t1)) return String(Math.max(0, Math.round((t1 - t0) / 86400000)));
+  const terms = (d.party as Row | undefined)?.payment_terms_days;
+  return terms === null || terms === undefined ? "" : String(terms);
+}
 function wh(d: Row, k: string) {
   const w = d[`${k}__l`];
   return w ? `${w.code} – ${w.name}` : "";
