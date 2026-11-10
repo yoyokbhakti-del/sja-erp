@@ -137,6 +137,7 @@ export const COLUMN_DEFS: ColDef[] = [
       [r.sw?.code ?? d.from_warehouse_id__l?.code, r.tw?.code ?? d.to_warehouse_id__l?.code].filter(Boolean).join(" → ") },
   { key: "rate", label: "Harga", width: 26, align: "r", get: (r) => rupiah(r.rate ?? r.basic_rate) },
   { key: "discount", label: "Disk. %", width: 14, align: "r", get: (r) => (Number(r.discount_percent) ? number(r.discount_percent) : "") },
+  { key: "disc_amount", label: "Diskon (Rp)", width: 24, align: "r", get: (r) => { const v = Number(r.qty || 0) * Number(r.rate || 0) * Number(r.discount_percent || 0) / 100; return v ? rupiah(v) : ""; } },
   { key: "amount", label: "Jumlah", width: 30, align: "r", get: (r) => rupiah(r.amount) },
 ];
 const CUSTOM_COL: ColDef = { key: "custom", label: "Kolom kustom", width: null, align: "l", get: () => "" };
@@ -146,6 +147,8 @@ export const colDef = (key: string): ColDef | undefined => COLUMN_DEFS.find((c) 
 // ------------------------ katalog total -------------------------------
 export const TOTAL_DEFS: { key: string; label: (d: Row) => string; get: (d: Row, rows: Row[]) => string; grand?: boolean; only?: (key: string, d: Row) => boolean }[] = [
   { key: "total_qty", label: () => "Total Qty", get: (_d, rows) => number(rows.reduce((s, r) => s + Number(r.qty || 0), 0)) },
+  { key: "gross", label: () => "Total sebelum diskon", get: (_d, rows) => rupiah(rows.reduce((a, r) => a + Number(r.qty || 0) * Number(r.rate || 0), 0)), only: (k) => k !== "stock_entries" },
+  { key: "discount", label: () => "Total diskon", get: (_d, rows) => rupiah(rows.reduce((a, r) => a + Number(r.qty || 0) * Number(r.rate || 0) * Number(r.discount_percent || 0) / 100, 0)), only: (k) => k !== "stock_entries" },
   { key: "subtotal", label: () => "Subtotal", get: (d) => rupiah(d.net_total), only: (k) => k !== "stock_entries" },
   { key: "ppn", label: (d) => `PPN ${number(d.ppn_percent)}%`, get: (d) => rupiah(d.tax_amount), only: (k) => k !== "stock_entries" },
   { key: "total", label: (d) => (d.total_amount !== undefined && d.grand_total === undefined ? "Total Nilai" : "Total"),
@@ -215,6 +218,8 @@ export const VAR_CATALOG: VarDef[] = [
   { group: "Customer / Supplier", key: "party.contact_line", label: "Telp. + NPWP (satu baris)" },
   ...META_FIELDS.map((m) => ({ group: "Info dokumen", key: `m.${m.key}`, label: m.label })),
   { group: "Total", key: "total.total_qty", label: "Total Qty" },
+  { group: "Total", key: "total.gross", label: "Total sebelum diskon" },
+  { group: "Total", key: "total.discount", label: "Total diskon (Rp)" },
   { group: "Total", key: "total.subtotal", label: "Subtotal" },
   { group: "Total", key: "total.ppn", label: "Nilai PPN" },
   { group: "Total", key: "total.ppn_label", label: "Label PPN (mis. PPN 11%)" },
