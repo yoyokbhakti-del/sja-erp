@@ -535,12 +535,33 @@ export default function PrintDesignEditor() {
       </Sec>
       <Sec title="Baris Bawah Tabel">
         <div className="text-xs text-zinc-400">Baris ringkasan di dalam tabel: label di kiri (rata kanan), nilai di kolom terakhir.</div>
-        <div className="text-xs font-medium text-zinc-600">Kotak kosong tepat di bawah kolom:</div>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-          {cfg.table.columns.map((c) => (
-            <Chk key={c.key} checked={(cfg.table.boxCols ?? []).includes(c.key)} label={c.label}
-              onChange={(v) => upd((x) => { const a = (x.table.boxCols ?? []).filter((k) => k !== c.key); if (v) a.push(c.key); x.table.boxCols = a; })} />
-          ))}
+        <div className="text-xs font-medium text-zinc-600">Kotak di bawah kolom (centang kolom, lalu atur datanya):</div>
+        <div className="space-y-1.5">
+          {cfg.table.columns.map((c) => {
+            const bi = (cfg.table.boxes ?? []).findIndex((b) => b.col === c.key);
+            const b = bi >= 0 ? cfg.table.boxes![bi] : null;
+            return (
+              <div key={c.key} className="rounded-md border border-zinc-200 p-1.5">
+                <Chk checked={!!b} label={c.label}
+                  onChange={(v) => upd((x) => { const a = (x.table.boxes ?? []).filter((k) => k.col !== c.key); if (v) a.push({ col: c.key, v: "" }); x.table.boxes = a; })} />
+                {b && (
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <div className="min-w-[140px] flex-1"><VarSelect value={b.v} empty="Kosong (tulis tangan)" onChange={(v) => upd((x) => { x.table.boxes![bi].v = v; })} /></div>
+                    <input type="number" min={4} max={30} step={0.5} placeholder="pt" title="Ukuran huruf (pt)" value={b.size ?? ""}
+                      className="h-7 w-14 rounded border border-zinc-200 bg-white px-1 text-[11px]"
+                      onChange={(e) => upd((x) => { const n = parseFloat(e.target.value); if (n > 0) x.table.boxes![bi].size = n; else delete x.table.boxes![bi].size; }, `bxs${bi}`)} />
+                    <IconBtn title="Tebal" active={b.bold} onClick={() => upd((x) => { x.table.boxes![bi].bold = !x.table.boxes![bi].bold; })}><span className="text-[11px] font-bold">B</span></IconBtn>
+                    {(["l", "c", "r"] as const).map((a) => (
+                      <IconBtn key={a} title={{ l: "Rata kiri", c: "Tengah", r: "Rata kanan" }[a]} active={(b.align ?? "r") === a}
+                        onClick={() => upd((x) => { x.table.boxes![bi].align = a; })}>
+                        <span className="text-[10px] font-bold">{a.toUpperCase()}</span>
+                      </IconBtn>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
         {(cfg.table.footRows ?? []).map((f, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1.5">

@@ -58,7 +58,7 @@ export type El = {
 
 export type TableCfg = {
   columns: ColCfg[]; border: "full" | "box" | "boxh" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
-  boxCols?: string[];     // kolom yang diberi satu kotak kosong di bawahnya
+  boxes?: { col: string; v: string; bold?: boolean; align?: "l" | "c" | "r"; size?: number }[];   // kotak di bawah kolom (v = data, kosong = kotak kosong)
   footRows?: { label: string; v: string; bold?: boolean }[];   // baris ringkasan di bawah tabel (label | nilai)
   extraRows?: number;     // baris kosong tambahan di bawah data
   lineW?: number;         // tebal garis (pt)
@@ -514,7 +514,13 @@ export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
         ...d.table, ...c.table, fam: c.table?.fam === "sans" || c.table?.fam === "serif" || c.table?.fam === "mono" ? c.table.fam : undefined,
         border: ["full", "box", "boxh", "horizontal", "none"].includes(c.table?.border) ? c.table.border : d.table.border,
         extraRows: num(c.table?.extraRows, 0, 0, 40),
-        boxCols: Array.isArray(c.table?.boxCols) ? c.table.boxCols.filter((k: unknown) => typeof k === "string") : undefined,
+        boxes: (Array.isArray(c.table?.boxes) ? c.table.boxes : Array.isArray(c.table?.boxCols) ? c.table.boxCols.map((k: unknown) => ({ col: k, v: "" })) : [])
+          .filter((b: any) => b && typeof b.col === "string") // eslint-disable-line @typescript-eslint/no-explicit-any
+          .map((b: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+            col: b.col, v: str(b.v), ...(b.bold ? { bold: true } : {}),
+            ...(b.align === "l" || b.align === "c" || b.align === "r" ? { align: b.align } : {}),
+            ...(typeof b.size === "number" && b.size > 0 ? { size: Math.min(30, b.size) } : {}),
+          })),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         footRows: Array.isArray(c.table?.footRows) ? c.table.footRows.filter((r: any) => r && typeof r === "object").slice(0, 20).map((r: any) => ({ label: str(r.label), v: str(r.v), ...(r.bold ? { bold: true } : {}) })) : undefined,
         lineW: num(c.table?.lineW, 0.6, 0.1, 3), columns: cols.length ? cols : d.table.columns,

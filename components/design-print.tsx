@@ -276,13 +276,22 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
             <tr key={`f${i}`} className="fill">{cols.map((c) => <td key={c.cfg.key} />)}</tr>
           ))}
         </tbody>
-        {((design.table.footRows ?? []).length > 0 || (design.table.boxCols ?? []).length > 0) && (
+        {((design.table.footRows ?? []).length > 0 || (design.table.boxes ?? []).length > 0) && (
           <tfoot>
-            {(design.table.boxCols ?? []).length > 0 && (
+            {(design.table.boxes ?? []).length > 0 && (
               <tr className="dp-boxrow">
-                {cols.map((c) => (design.table.boxCols!.includes(c.cfg.key)
-                  ? <td key={c.cfg.key} style={{ height: "7mm", border: `${design.table.lineW ?? 0.6}pt solid #000` }} />
-                  : <td key={c.cfg.key} style={{ border: "none" }} />))}
+                {cols.map((c) => {
+                  const b = design.table.boxes!.find((x) => x.col === c.cfg.key);
+                  if (!b) return <td key={c.cfg.key} style={{ border: "none" }} />;
+                  const al = b.align ?? "r";
+                  return (
+                    <td key={c.cfg.key} className={al === "r" ? "dp-r" : al === "c" ? "dp-c" : ""}
+                      style={{ height: "7mm", verticalAlign: "middle", border: `${design.table.lineW ?? 0.6}pt solid #000`,
+                        fontWeight: b.bold ? 700 : undefined, fontSize: b.size ? `${b.size}pt` : undefined }}>
+                      {b.v ? (vars[b.v] ?? "") : ""}
+                    </td>
+                  );
+                })}
               </tr>
             )}
             {design.table.footRows!.map((f, i) => (
