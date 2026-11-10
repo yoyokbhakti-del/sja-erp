@@ -52,7 +52,7 @@ export type El = {
   // gambar
   src?: string;
   // daftar info (label : isi) & blok total
-  rows?: { label: string; v: string }[]; labelW?: number; keys?: string[]; labelBold?: boolean;
+  rows?: { label: string; v: string; fam?: FontFam; size?: number; bold?: boolean; italic?: boolean }[]; labelW?: number; keys?: string[]; labelBold?: boolean;
 };
 
 export type TableCfg = {
@@ -458,6 +458,14 @@ function cleanEls(arr: unknown): El[] {
       x: num(e.x, 0), y: num(e.y, 0), w: num(e.w, 20, 0.5, 1000), h: num(e.h, 5, 0.1, 1000),
     };
     if (el.rows && !Array.isArray(el.rows)) delete el.rows;
+    if (el.rows) el.rows = el.rows.filter((r) => r && typeof r === "object").map((r) => {
+      const o: NonNullable<El["rows"]>[number] = { label: str(r.label), v: str(r.v) };
+      if (r.fam === "sans" || r.fam === "serif" || r.fam === "mono") o.fam = r.fam;
+      if (typeof r.size === "number" && r.size > 0) o.size = Math.min(30, r.size);
+      if (r.bold) o.bold = true;
+      if (r.italic) o.italic = true;
+      return o;
+    });
     if (el.keys && !Array.isArray(el.keys)) delete el.keys;
     if (el.type === "totals") el.keys = (el.keys ?? []).filter((k) => TOTAL_DEFS.some((t) => t.key === k));
     return [el];

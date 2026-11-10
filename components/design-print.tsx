@@ -100,11 +100,15 @@ function ElBody({ el, vars, d, doc, rows, dtKey }: { el: El; vars: Record<string
       );
     }
     case "kv": {
-      const items = (el.rows ?? []).map((r) => ({ label: r.label, value: vars[r.v] ?? "" })).filter((r) => r.value);
+      const items = (el.rows ?? []).map((r) => ({ label: r.label, value: vars[r.v] ?? "", r })).filter((r) => r.value);
       return (
         <div style={{ ...listFont, width: "100%" }}>
           {items.map((r, i) => (
-            <div key={i} style={{ display: "flex", padding: "0.6mm 0" }}>
+            <div key={i} style={{
+              display: "flex", padding: "0.6mm 0",
+              fontFamily: r.r.fam ? FONTS[r.r.fam] : undefined, fontSize: r.r.size ? `${r.r.size}pt` : undefined,
+              fontWeight: r.r.bold ? 700 : undefined, fontStyle: r.r.italic ? "italic" : undefined,
+            }}>
               <span style={{ width: mm(el.labelW ?? 30), flexShrink: 0, display: "flex", justifyContent: "space-between", paddingRight: "2mm", fontWeight: el.labelBold ? 700 : undefined }}>
                 <span>{r.label}</span><span>:</span>
               </span>

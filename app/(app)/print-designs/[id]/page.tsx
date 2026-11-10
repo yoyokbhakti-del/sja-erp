@@ -635,12 +635,23 @@ export default function PrintDesignEditor() {
 
       {E.type === "kv" && (
         <Sec title="Daftar Data (label : isi)">
-          <div className="text-[11px] text-zinc-400">Baris yang datanya kosong otomatis tidak dicetak.</div>
+          <div className="text-[11px] text-zinc-400">Baris yang datanya kosong otomatis tidak dicetak. Tiap baris punya pengaturan huruf sendiri; yang kosong mengikuti pengaturan elemen di bawah.</div>
           {(E.rows ?? []).map((r, i) => (
             <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
               <Input value={r.label} onChange={(e) => { const rows = structuredClone(E.rows!); rows[i].label = e.target.value; patch(E.id, { rows }, `kv:${E.id}:${i}`); }} />
               <VarSelect value={r.v} empty="Pilih data…" onChange={(v) => { const rows = structuredClone(E.rows!); rows[i].v = v; if (v && !rows[i].label) rows[i].label = VAR_CATALOG.find((x) => x.key === v)?.label ?? ""; patch(E.id, { rows }); }} />
               <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => patch(E.id, { rows: E.rows!.filter((_, j) => j !== i) })}><X size={13} /></button>
+              <div className="col-span-3 flex flex-wrap items-center gap-1 pb-1">
+                <select className="h-6 rounded border border-zinc-200 bg-white px-1 text-[11px]" title="Huruf baris ini" value={r.fam ?? ""}
+                  onChange={(e) => { const rows = structuredClone(E.rows!); if (e.target.value) rows[i].fam = e.target.value as FontFam; else delete rows[i].fam; patch(E.id, { rows }); }}>
+                  <option value="">Huruf: ikut elemen</option><option value="sans">Sans-serif</option><option value="serif">Serif</option><option value="mono">Monospace</option>
+                </select>
+                <input type="number" min={4} max={30} step={0.5} placeholder="pt" title="Ukuran baris ini (pt)" value={r.size ?? ""}
+                  className="h-6 w-14 rounded border border-zinc-200 bg-white px-1 text-[11px]"
+                  onChange={(e) => { const rows = structuredClone(E.rows!); const n = parseFloat(e.target.value); if (n > 0) rows[i].size = n; else delete rows[i].size; patch(E.id, { rows }, `kvs:${E.id}:${i}`); }} />
+                <IconBtn title="Tebal baris ini" active={r.bold} onClick={() => { const rows = structuredClone(E.rows!); rows[i].bold = !rows[i].bold; patch(E.id, { rows }); }}><span className="text-[11px] font-bold">B</span></IconBtn>
+                <IconBtn title="Miring baris ini" active={r.italic} onClick={() => { const rows = structuredClone(E.rows!); rows[i].italic = !rows[i].italic; patch(E.id, { rows }); }}><span className="text-[11px] italic">I</span></IconBtn>
+              </div>
             </div>
           ))}
           <Sel value="" onChange={(v) => { if (v) patch(E.id, { rows: [...(E.rows ?? []), { label: VAR_CATALOG.find((x) => x.key === v)?.label ?? "", v }] }); }}>
