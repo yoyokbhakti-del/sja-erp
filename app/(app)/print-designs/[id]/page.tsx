@@ -535,6 +535,13 @@ export default function PrintDesignEditor() {
       </Sec>
       <Sec title="Baris Bawah Tabel">
         <div className="text-xs text-zinc-400">Baris ringkasan di dalam tabel: label di kiri (rata kanan), nilai di kolom terakhir.</div>
+        <div className="text-xs font-medium text-zinc-600">Kotak kosong tepat di bawah kolom:</div>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+          {cfg.table.columns.map((c) => (
+            <Chk key={c.key} checked={(cfg.table.boxCols ?? []).includes(c.key)} label={c.label}
+              onChange={(v) => upd((x) => { const a = (x.table.boxCols ?? []).filter((k) => k !== c.key); if (v) a.push(c.key); x.table.boxCols = a; })} />
+          ))}
+        </div>
         {(cfg.table.footRows ?? []).map((f, i) => (
           <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1.5">
             <Input value={f.label} onChange={(e) => upd((x) => { x.table.footRows![i].label = e.target.value; }, `fr${i}`)} />

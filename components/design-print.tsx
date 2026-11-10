@@ -276,8 +276,15 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
             <tr key={`f${i}`} className="fill">{cols.map((c) => <td key={c.cfg.key} />)}</tr>
           ))}
         </tbody>
-        {(design.table.footRows ?? []).length > 0 && (
+        {((design.table.footRows ?? []).length > 0 || (design.table.boxCols ?? []).length > 0) && (
           <tfoot>
+            {(design.table.boxCols ?? []).length > 0 && (
+              <tr className="dp-boxrow">
+                {cols.map((c) => (design.table.boxCols!.includes(c.cfg.key)
+                  ? <td key={c.cfg.key} style={{ height: "7mm", border: `${design.table.lineW ?? 0.6}pt solid #000` }} />
+                  : <td key={c.cfg.key} style={{ border: "none" }} />))}
+              </tr>
+            )}
             {design.table.footRows!.map((f, i) => (
               <tr key={i} className="dp-foot">
                 <td colSpan={Math.max(cols.length - 1, 1)} className="dp-r" style={{ fontWeight: f.bold ? 700 : undefined }}>{f.label}</td>
