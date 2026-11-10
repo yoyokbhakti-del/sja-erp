@@ -295,7 +295,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
               </tr>
             )}
             {design.table.footRows!.map((f, i) => (
-              <tr key={i} className="dp-foot">
+              <tr key={i} className="dp-foot" style={{ height: "6.5mm" }}>
                 <td colSpan={Math.max(cols.length - 1, 1)} className="dp-r" style={{ fontWeight: f.bold ? 700 : undefined }}>{f.label}</td>
                 {cols.length > 1 && <td className="dp-r" style={{ fontWeight: f.bold ? 700 : undefined }}>{vars[f.v] ?? ""}</td>}
               </tr>

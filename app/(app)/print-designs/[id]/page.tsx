@@ -571,6 +571,9 @@ export default function PrintDesignEditor() {
             <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => upd((x) => { x.table.footRows!.splice(i, 1); })}><X size={13} /></button>
           </div>
         ))}
+        <Button variant="outline" onClick={() => upd((c) => { const a = (c.table.footRows ??= []); for (let k = 0; k < 4; k++) a.push({ label: "", v: "" }); })}>
+          <Plus size={13} /> Tambah 4 baris kosong di bawah tabel
+        </Button>
         <Sel value="" onChange={(v) => v && upd((c) => { (c.table.footRows ??= []).push({ label: VAR_CATALOG.find((k) => k.key === v)?.label ?? "", v }); })}>
           <option value="">+ Tambah baris di bawah tabel…</option>
           {VAR_CATALOG.map((v) => <option key={v.key} value={v.key}>{v.group} – {v.label}</option>)}
