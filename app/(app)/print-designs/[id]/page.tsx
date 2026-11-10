@@ -533,6 +533,21 @@ export default function PrintDesignEditor() {
         </Button>
         <div className="text-xs text-zinc-400">Lebar kolom dalam mm; kosongkan agar otomatis (sisa lebar).</div>
       </Sec>
+      <Sec title="Baris Bawah Tabel">
+        <div className="text-xs text-zinc-400">Baris ringkasan di dalam tabel: label di kiri (rata kanan), nilai di kolom terakhir.</div>
+        {(cfg.table.footRows ?? []).map((f, i) => (
+          <div key={i} className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-1.5">
+            <Input value={f.label} onChange={(e) => upd((x) => { x.table.footRows![i].label = e.target.value; }, `fr${i}`)} />
+            <VarSelect value={f.v} empty="Pilih data…" onChange={(v) => upd((x) => { const r = x.table.footRows![i]; r.v = v; if (v && !r.label) r.label = VAR_CATALOG.find((k) => k.key === v)?.label ?? ""; })} />
+            <IconBtn title="Tebal" active={f.bold} onClick={() => upd((x) => { const r = x.table.footRows![i]; r.bold = !r.bold; })}><span className="text-[11px] font-bold">B</span></IconBtn>
+            <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => upd((x) => { x.table.footRows!.splice(i, 1); })}><X size={13} /></button>
+          </div>
+        ))}
+        <Sel value="" onChange={(v) => v && upd((c) => { (c.table.footRows ??= []).push({ label: VAR_CATALOG.find((k) => k.key === v)?.label ?? "", v }); })}>
+          <option value="">+ Tambah baris di bawah tabel…</option>
+          {VAR_CATALOG.map((v) => <option key={v.key} value={v.key}>{v.group} – {v.label}</option>)}
+        </Sel>
+      </Sec>
       <Sec title="Gaya Tabel">
         <div className="grid grid-cols-2 gap-2">
           <F label="Garis tabel">

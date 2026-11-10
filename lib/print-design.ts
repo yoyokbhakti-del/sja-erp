@@ -58,6 +58,7 @@ export type El = {
 
 export type TableCfg = {
   columns: ColCfg[]; border: "full" | "box" | "boxh" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
+  footRows?: { label: string; v: string; bold?: boolean }[];   // baris ringkasan di bawah tabel (label | nilai)
   extraRows?: number;     // baris kosong tambahan di bawah data
   lineW?: number;         // tebal garis (pt)
   headBg: boolean; size: number; pad: number; headUpper: boolean;
@@ -511,7 +512,11 @@ export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
       table: {
         ...d.table, ...c.table, fam: c.table?.fam === "sans" || c.table?.fam === "serif" || c.table?.fam === "mono" ? c.table.fam : undefined,
         border: ["full", "box", "boxh", "horizontal", "none"].includes(c.table?.border) ? c.table.border : d.table.border,
-        extraRows: num(c.table?.extraRows, 0, 0, 40), lineW: num(c.table?.lineW, 0.6, 0.1, 3), columns: cols.length ? cols : d.table.columns },
+        extraRows: num(c.table?.extraRows, 0, 0, 40),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        footRows: Array.isArray(c.table?.footRows) ? c.table.footRows.filter((r: any) => r && typeof r === "object").slice(0, 20).map((r: any) => ({ label: str(r.label), v: str(r.v), ...(r.bold ? { bold: true } : {}) })) : undefined,
+        lineW: num(c.table?.lineW, 0.6, 0.1, 3), columns: cols.length ? cols : d.table.columns,
+      },
       els: cleanEls(c.els),
     };
   }
