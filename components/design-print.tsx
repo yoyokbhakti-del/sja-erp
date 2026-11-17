@@ -171,7 +171,10 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
   const autoTitle = typeof dt.printTitle === "function" ? dt.printTitle(doc) : (dt.printTitle ?? dt.label.toUpperCase());
   const vars = buildVars({ dtKey: dt.key, title: autoTitle, doc, rows, company, maker, printedBy });
   const cols = design.table.columns.map((c) => ({ cfg: c, def: colDef(c.key)! })).filter((c) => c.def);
-  const fill = Math.max(0, design.table.minRows - rows.length) + (design.table.extraRows ?? 0);
+  const fillBoxes = (design.table.boxes ?? []).filter((b) => b.fill);
+  const boxText = (b: { v: string; text?: string }) => (b.text ? resolveText(b.text, vars) : b.v ? (vars[b.v] ?? "") : "");
+  const fill = Math.max(Math.max(0, design.table.minRows - rows.length) + (design.table.extraRows ?? 0),
+    ...cols.map((c) => fillBoxes.filter((b) => b.col === c.cfg.key).length));
   const z = edit?.zoom ?? 1;
   const px = (n: number) => `${n / z}px`;
 
@@ -273,22 +276,28 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
             </tr>
           ))}
           {Array.from({ length: fill }).map((_, i) => (
-            <tr key={`f${i}`} className="fill">{cols.map((c) => <td key={c.cfg.key} />)}</tr>
+            <tr key={`f${i}`} className="fill">{cols.map((c) => {
+              const b = fillBoxes.filter((x) => x.col === c.cfg.key)[i];
+              if (!b) return <td key={c.cfg.key} />;
+              const al = b.align ?? "l";
+              return <td key={c.cfg.key} className={al === "r" ? "dp-r" : al === "c" ? "dp-c" : ""}
+                style={{ fontWeight: b.bold ? 700 : undefined, fontSize: b.size ? `${b.size}pt` : undefined }}>{boxText(b)}</td>;
+            })}</tr>
           ))}
         </tbody>
         {((design.table.footRows ?? []).length > 0 || (design.table.boxes ?? []).length > 0) && (
           <tfoot>
-            {Array.from({ length: Math.max(0, ...cols.map((c) => (design.table.boxes ?? []).filter((x) => x.col === c.cfg.key).length)) }).map((_, r) => (
+            {Array.from({ length: Math.max(0, ...cols.map((c) => (design.table.boxes ?? []).filter((x) => !x.fill && x.col === c.cfg.key).length)) }).map((_, r) => (
               <tr key={`bx${r}`} className="dp-boxrow">
                 {cols.map((c) => {
-                  const b = (design.table.boxes ?? []).filter((x) => x.col === c.cfg.key)[r];
+                  const b = (design.table.boxes ?? []).filter((x) => !x.fill && x.col === c.cfg.key)[r];
                   if (!b) return <td key={c.cfg.key} style={{ border: "none" }} />;
                   const al = b.align ?? "r";
                   return (
                     <td key={c.cfg.key} className={al === "r" ? "dp-r" : al === "c" ? "dp-c" : ""}
                       style={{ height: "7mm", verticalAlign: "middle", border: `${design.table.lineW ?? 0.6}pt solid #000`,
                         fontWeight: b.bold ? 700 : undefined, fontSize: b.size ? `${b.size}pt` : undefined }}>
-                      {b.v ? (vars[b.v] ?? "") : ""}
+                      {boxText(b)}
                     </td>
                   );
                 })}

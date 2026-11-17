@@ -535,7 +535,7 @@ export default function PrintDesignEditor() {
       </Sec>
       <Sec title="Baris Bawah Tabel">
         <div className="text-xs text-zinc-400">Baris ringkasan di dalam tabel: label di kiri (rata kanan), nilai di kolom terakhir.</div>
-        <div className="text-xs font-medium text-zinc-600">Kotak di bawah kolom (bisa lebih dari satu, tersusun ke bawah):</div>
+        <div className="text-xs font-medium text-zinc-600">Kotak / sel tambahan di bawah kolom (tersusun ke bawah). Centang "Di baris kosong tabel" agar tulisannya masuk ke baris kosong tabel, bukan baris baru:</div>
         <div className="space-y-1.5">
           {cfg.table.columns.map((c) => {
             const list = (cfg.table.boxes ?? []).map((b, gi) => ({ b, gi })).filter((x) => x.b.col === c.key);
@@ -561,6 +561,10 @@ export default function PrintDesignEditor() {
                       </IconBtn>
                     ))}
                     <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => upd((x) => { x.table.boxes!.splice(gi, 1); })}><X size={13} /></button>
+                    <div className="flex w-full items-center gap-2 pl-5">
+                      <Input placeholder="Teks bebas (opsional, menggantikan data)" value={b.text ?? ""} onChange={(e) => upd((x) => { x.table.boxes![gi].text = e.target.value; }, `bxt${gi}`)} />
+                      <Chk checked={!!b.fill} label="Di baris kosong tabel" onChange={(v) => upd((x) => { if (v) x.table.boxes![gi].fill = true; else delete x.table.boxes![gi].fill; })} />
+                    </div>
                   </div>
                 ))}
               </div>
