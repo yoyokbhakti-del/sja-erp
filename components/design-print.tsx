@@ -173,6 +173,14 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
   const cols = design.table.columns.map((c) => ({ cfg: c, def: colDef(c.key)! })).filter((c) => c.def);
   const fillBoxes = (design.table.boxes ?? []).filter((b) => b.fill);
   const boxText = (b: { v: string; text?: string }) => (b.text ? resolveText(b.text, vars) : b.v ? (vars[b.v] ?? "") : "");
+  // tulisan di depan kotak: dicetak di sel sebelah kiri kotak (bila sel itu kosong)
+  const labelCell = (key: string, list: { col: string; label?: string; labelBold?: boolean }[], idx: number, boxed: boolean) => {
+    const j = cols.findIndex((c) => c.cfg.key === key);
+    const next = cols[j + 1];
+    const nb = next ? list.filter((x) => x.col === next.cfg.key)[idx] : undefined;
+    if (!nb?.label) return null;
+    return <td key={key} className="dp-r" style={{ verticalAlign: "middle", fontWeight: nb.labelBold ? 700 : undefined, whiteSpace: "nowrap", ...(boxed ? { border: "none" } : {}) }}>{resolveText(nb.label, vars)}</td>;
+  };
   const fill = Math.max(Math.max(0, design.table.minRows - rows.length) + (design.table.extraRows ?? 0),
     ...cols.map((c) => fillBoxes.filter((b) => b.col === c.cfg.key).length));
   const z = edit?.zoom ?? 1;
@@ -278,7 +286,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
           {Array.from({ length: fill }).map((_, i) => (
             <tr key={`f${i}`} className="fill">{cols.map((c) => {
               const b = fillBoxes.filter((x) => x.col === c.cfg.key)[i];
-              if (!b) return <td key={c.cfg.key} />;
+              if (!b) return labelCell(c.cfg.key, fillBoxes, i, false) ?? <td key={c.cfg.key} />;
               const al = b.align ?? "l";
               return <td key={c.cfg.key} className={al === "r" ? "dp-r" : al === "c" ? "dp-c" : ""}
                 style={{ fontWeight: b.bold ? 700 : undefined, fontSize: b.size ? `${b.size}pt` : undefined }}>{boxText(b)}</td>;
@@ -291,7 +299,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
               <tr key={`bx${r}`} className="dp-boxrow">
                 {cols.map((c) => {
                   const b = (design.table.boxes ?? []).filter((x) => !x.fill && x.col === c.cfg.key)[r];
-                  if (!b) return <td key={c.cfg.key} style={{ border: "none" }} />;
+                  if (!b) return labelCell(c.cfg.key, (design.table.boxes ?? []).filter((x) => !x.fill), r, true) ?? <td key={c.cfg.key} style={{ border: "none" }} />;
                   const al = b.align ?? "r";
                   return (
                     <td key={c.cfg.key} className={al === "r" ? "dp-r" : al === "c" ? "dp-c" : ""}
@@ -303,7 +311,7 @@ export function DesignSheet({ dt, doc, rows, company, maker, printedBy, design, 
                 })}
               </tr>
             ))}
-            {design.table.footRows!.map((f, i) => (
+            {(design.table.footRows ?? []).map((f, i) => (
               <tr key={i} className="dp-foot" style={{ height: "6.5mm" }}>
                 <td colSpan={Math.max(cols.length - 1, 1)} className="dp-r" style={{ fontWeight: f.bold ? 700 : undefined }}>{f.label}</td>
                 {cols.length > 1 && <td className="dp-r" style={{ fontWeight: f.bold ? 700 : undefined }}>{vars[f.v] ?? ""}</td>}

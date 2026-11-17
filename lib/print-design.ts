@@ -58,7 +58,7 @@ export type El = {
 
 export type TableCfg = {
   columns: ColCfg[]; border: "full" | "box" | "boxh" | "horizontal" | "none"; minRows: number; itemSubline: boolean;
-  boxes?: { col: string; v: string; text?: string; fill?: boolean; bold?: boolean; align?: "l" | "c" | "r"; size?: number }[];   // kotak di bawah kolom (v = data, kosong = kotak kosong)
+  boxes?: { col: string; v: string; text?: string; label?: string; labelBold?: boolean; fill?: boolean; bold?: boolean; align?: "l" | "c" | "r"; size?: number }[];   // kotak di bawah kolom (v = data, kosong = kotak kosong)
   footRows?: { label: string; v: string; bold?: boolean }[];   // baris ringkasan di bawah tabel (label | nilai)
   extraRows?: number;     // baris kosong tambahan di bawah data
   lineW?: number;         // tebal garis (pt)
@@ -524,7 +524,7 @@ export function mergeDesign(docKey: string, raw: unknown): DesignConfig {
         boxes: (Array.isArray(c.table?.boxes) ? c.table.boxes : Array.isArray(c.table?.boxCols) ? c.table.boxCols.map((k: unknown) => ({ col: k, v: "" })) : [])
           .filter((b: any) => b && typeof b.col === "string") // eslint-disable-line @typescript-eslint/no-explicit-any
           .map((b: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-            col: b.col, v: str(b.v), ...(typeof b.text === "string" && b.text ? { text: b.text.slice(0, 300) } : {}), ...(b.fill ? { fill: true } : {}), ...(b.bold ? { bold: true } : {}),
+            col: b.col, v: str(b.v), ...(typeof b.text === "string" && b.text ? { text: b.text.slice(0, 300) } : {}), ...(b.fill ? { fill: true } : {}), ...(typeof b.label === "string" && b.label ? { label: b.label.slice(0, 100) } : {}), ...(b.labelBold ? { labelBold: true } : {}), ...(b.bold ? { bold: true } : {}),
             ...(b.align === "l" || b.align === "c" || b.align === "r" ? { align: b.align } : {}),
             ...(typeof b.size === "number" && b.size > 0 ? { size: Math.min(30, b.size) } : {}),
           })),

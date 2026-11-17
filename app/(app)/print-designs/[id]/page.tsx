@@ -561,6 +561,10 @@ export default function PrintDesignEditor() {
                       </IconBtn>
                     ))}
                     <button type="button" className="rounded p-1 text-red-600 hover:bg-red-50" onClick={() => upd((x) => { x.table.boxes!.splice(gi, 1); })}><X size={13} /></button>
+                    <div className="flex w-full items-center gap-1.5 pl-5">
+                      <Input placeholder="Tulisan di depan kotak (mis. Total)" value={b.label ?? ""} onChange={(e) => upd((x) => { x.table.boxes![gi].label = e.target.value; }, `bxl${gi}`)} />
+                      <IconBtn title="Tulisan depan tebal" active={b.labelBold} onClick={() => upd((x) => { x.table.boxes![gi].labelBold = !x.table.boxes![gi].labelBold; })}><span className="text-[11px] font-bold">B</span></IconBtn>
+                    </div>
                     <div className="flex w-full items-center gap-2 pl-5">
                       <Input placeholder="Teks bebas (opsional, menggantikan data)" value={b.text ?? ""} onChange={(e) => upd((x) => { x.table.boxes![gi].text = e.target.value; }, `bxt${gi}`)} />
                       <Chk checked={!!b.fill} label="Di baris kosong tabel" onChange={(v) => upd((x) => { if (v) x.table.boxes![gi].fill = true; else delete x.table.boxes![gi].fill; })} />
