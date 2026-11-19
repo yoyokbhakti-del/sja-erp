@@ -165,6 +165,9 @@ export function FormPrint({ dt, doc, rows, company, maker }: {
                     <tr key={k}><td>{k}</td><td>:</td><td className={k === partyLabel ? "b" : ""}>{v}</td></tr>
                   ))}
                   {!isPay && p?.address && <tr><td /><td /><td className="small">{[p.address, p.city].filter(Boolean).join(", ")}</td></tr>}
+                  {!isPay && p?.phone && !String(p.address ?? "").replace(/\D/g, "").includes(String(p.phone).replace(/\D/g, "")) && (
+                    <tr><td /><td /><td className="small">Telp. {p.phone}</td></tr>
+                  )}
                   {!isPay && <tr><td /><td /><td className="small">NPWP : {p?.npwp ?? ""}</td></tr>}
                 </tbody>
               </table>

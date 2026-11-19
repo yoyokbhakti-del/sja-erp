@@ -6,6 +6,7 @@
 // Komponen yang sama dipakai untuk cetak, pratinjau, dan editor kanvas.
 // =====================================================================
 import type React from "react";
+import { useLayoutEffect, useRef } from "react";
 import { Printer, X } from "lucide-react";
 import type { DocType } from "@/lib/doctypes";
 import { TOTAL_DEFS, buildVars, colDef, isCustomCol, resolveText, type Band, type DesignConfig, type El } from "@/lib/print-design";
@@ -76,6 +77,23 @@ ${scoped ? "" : `@media print {
 
 const mm = (n: number) => `${n}mm`;
 
+// Teks yang lebih panjang dari kotaknya (mis. alamat customer yang panjang) diperkecil
+// hurufnya sampai muat (paling kecil 60%), supaya tidak terpotong saat dicetak.
+function FitText({ txt, size, w, h }: { txt: string; size: number; w: number; h: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const i = ref.current, o = i?.parentElement;
+    if (!i || !o) return;
+    let f = size;
+    i.style.fontSize = `${f}pt`;
+    while (i.offsetHeight > o.clientHeight + 1 && f > size * 0.6) {
+      f = Math.round((f - 0.25) * 100) / 100;
+      i.style.fontSize = `${f}pt`;
+    }
+  }, [txt, size, w, h]);
+  return <div ref={ref} style={{ width: "100%", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{txt}</div>;
+}
+
 // Isi satu elemen (tanpa posisi)
 function ElBody({ el, vars, d, doc, rows, dtKey }: { el: El; vars: Record<string, string>; d: DesignConfig; doc: Row; rows: Row[]; dtKey: string }) {
   const size = el.size ?? d.font.size;
@@ -97,7 +115,7 @@ function ElBody({ el, vars, d, doc, rows, dtKey }: { el: El; vars: Record<string
           textAlign: el.align === "c" ? "center" : el.align === "r" ? "right" : "left", color,
           letterSpacing: el.spacing ? mm(el.spacing) : undefined, fontFamily: el.family ? FONTS[el.family] : undefined,
         }}>
-          <div style={{ width: "100%", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{txt}</div>
+          <FitText txt={txt} size={size} w={el.w} h={el.h} />
         </div>
       );
     }

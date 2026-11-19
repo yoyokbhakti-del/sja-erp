@@ -123,7 +123,9 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
   // Surat Jalan memakai huruf lebih besar: 10 cpi -> 80 kolom
   const big = key === "delivery_notes";
   const W = big ? 80 : COLS;
-  const rightX = W - 34;                        // awal kolom data kanan
+  // Surat Jalan: kolom kanan lebih ramping supaya alamat customer dapat tempat lebih lebar
+  const rkW = big ? 10 : 11, rvW = big ? 18 : 21;
+  const rightX = W - (rkW + 2 + rvW);           // awal kolom data kanan
   const leftW = rightX - 14;                    // lebar nilai data kiri
   const priced = key === "sales_invoices" || key === "purchase_orders";
   const head = ascii(company.print_name || company.name || "").toUpperCase();
@@ -230,25 +232,37 @@ export function buildPages(key: string, doc: Row, rows: Row[], company: Row): Ca
     if (doc.docstatus === 2) cv.right(3, W, "*** DIBATALKAN ***", true);
 
     // ---------- data kiri ----------
-    let r = 5;
-    for (const [k, v, b] of leftKV) {
+    const top = big ? 4 : 5;
+    const t0 = 12;
+    let r = top;
+    leftKV.forEach(([k, v, b], ki) => {
       cv.put(r, 0, fit(k, 11) + ": ");
       const vl = wrap(v, leftW);
       cv.put(r, 13, vl[0] ?? "", !!b);
       r++;
       if (k === partyLabel && !isPay && p) {
-        for (const a of wrap([p.address, p.city].filter(Boolean).join(", "), leftW).slice(0, big ? 3 : 2)) cv.put(r++, 13, a);
-        if (p.npwp) cv.put(r++, 13, `NPWP : ${ascii(p.npwp)}`);
+        // alamat lengkap + telepon + NPWP, sebanyak baris yang tersedia sebelum tabel
+        // nama panjang: lanjut 1 baris (tebal)
+        if (vl[1]) cv.put(r++, 13, fit(vl.slice(1).join(" "), leftW), !!b);
+        const budget = t0 - r - (leftKV.length - ki - 1);
+        const addr = wrap([p.address, p.city].filter(Boolean).join(", "), leftW);
+        const digits = (x: unknown) => String(x ?? "").replace(/\D/g, "");
+        const phone = p.phone && !digits(p.address).includes(digits(p.phone)) ? wrap(`Telp. ${ascii(p.phone)}`, leftW).slice(0, 1) : [];
+        let npwp = p.npwp ? [`NPWP : ${ascii(p.npwp)}`] : [];
+        if (addr.length + phone.length + npwp.length > budget) npwp = [];
+        const room = Math.max(0, budget - phone.length - npwp.length);
+        const shown = addr.slice(0, room);
+        if (addr.length > room && room > 0) shown[room - 1] = fit(shown[room - 1], leftW - 1) + "~";
+        for (const a of [...shown, ...phone, ...npwp]) cv.put(r++, 13, a);
       }
-    }
+    });
     // ---------- data kanan ----------
-    let rr = 5;
+    let rr = top;
     for (const [k, v] of [...rightKV, ["Lembar", `${pi + 1} / ${chunks.length}`] as [string, string]]) {
-      cv.put(rr++, rightX, fit(k, 11) + ": " + fit(v, 21));
+      cv.put(rr++, rightX, fit(k, rkW) + ": " + fit(v, rvW));
     }
 
     // ---------- tabel ----------
-    const t0 = 12;
     cv.put(t0, 0, line(ws, "┌", "┬", "┐"));
     cv.put(t0 + 1, 0, V + cols.map((c) => fit(c.h, c.w, c.a === "r" ? "r" : "l")).join(V) + V, true);
     cv.put(t0 + 2, 0, line(ws, "├", "┼", "┤"));
