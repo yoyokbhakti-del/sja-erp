@@ -8,6 +8,7 @@ import { byKey, docUrl, linkText, selectWithLinks, type DocType, type Field } fr
 import { number, rupiah, tanggal, errMsg } from "@/lib/format";
 import { Alert, Badge, Button, Card, Input, PageHeader, Select, Td, Th } from "@/components/ui";
 import { usePerms } from "@/components/perms";
+import { ExcelImport } from "@/components/excel-import";
 
 type Row = Record<string, unknown>;
 const PAGE = 50;
@@ -68,6 +69,7 @@ export function DocList({ dt }: { dt: DocType }) {
     <div>
       <PageHeader title={dt.label} sub={`${count} data`}>
         <Button variant="ghost" onClick={load} title="Muat ulang"><RefreshCw size={14} className={loading ? "animate-spin" : ""} /></Button>
+        {dt.importable && can(dt.key, "write") && <ExcelImport dt={dt} onDone={load} />}
         {can(dt.key, "write") && (
           <Button variant="primary" onClick={() => router.push(docUrl(dt.key, "new"))}><Plus size={14} /> Tambah {dt.label}</Button>
         )}

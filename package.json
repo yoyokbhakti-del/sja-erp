@@ -18,7 +18,9 @@
     "qz-tray": "^2.3.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "tailwind-merge": "^3.7.0"
+    "read-excel-file": "^9.3.17",
+    "tailwind-merge": "^3.7.0",
+    "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.3",

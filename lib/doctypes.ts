@@ -69,6 +69,7 @@ export interface DocType {
   actions?: DocAction[];     // tombol khusus saat Draft
   liveTotals?: (doc: Row, rows: Row[]) => Row;   // total yang dihitung langsung di form
   printTitle?: string | ((doc: Row) => string);
+  importable?: boolean;      // tombol Upload Excel di daftar
 }
 
 const today = () => localISO();
@@ -160,7 +161,7 @@ const suppliers: DocType = {
 };
 
 const customers: DocType = {
-  key: "customers", slug: "customer", label: "Customer", module: "Penjualan", isMaster: true,
+  key: "customers", slug: "customer", label: "Customer", module: "Penjualan", isMaster: true, importable: true,
   titleField: "code", subtitleField: "name", linkLabel: ["code", "name"],
   searchFields: ["code", "name", "city"], orderBy: { column: "code", ascending: true },
   fields: [
